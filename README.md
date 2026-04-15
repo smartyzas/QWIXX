@@ -1,1 +1,19 @@
-# QWIXX
+# 🎲 Qwixx Spiel (für Leni 💛)
+
+Digitale Version des Würfelspiels **Qwixx**, umgesetzt mit Python.
+
+---
+
+## 🚧 Status
+
+**In Entwicklung** – das Spiel befindet sich aktuell noch im Aufbau.
+
+---
+
+## 💡 Über das Projekt
+
+Dieses Spiel ist ein persönliches Projekt und gleichzeitig ein Geschenk.
+
+> 💛 Dieses Spiel ist für Leni.
+
+Ziel ist es, das originale Qwixx-Spiel als Web-Spiel umzusetzen.
