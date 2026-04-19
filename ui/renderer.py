@@ -1,0 +1,225 @@
+import os
+import pygame
+from config import *
+
+class Renderer:
+
+    def __init__(self, screen, game):
+        self.screen = screen
+        self.game = game
+
+        self.font_big = pygame.font.SysFont("arial", 40, bold=True)
+        self.font_small = pygame.font.SysFont("arial", 17, bold=True)
+
+        # buttons
+        self.btn_exit = pygame.Rect(0, 0, 0, 0)
+        self.btn_full = pygame.Rect(0, 0, 0, 0)
+        self.btn_reset = pygame.Rect(0, 0, 0, 0)
+        self.btn_roll = pygame.Rect(0, 0, 0, 0)
+
+        # icons
+        self.icon_exit = pygame.image.load("assets/exit_button.png").convert_alpha()
+        self.icon_full = pygame.image.load("assets/fullscreen_button.png").convert_alpha()
+        self.icon_reset = pygame.image.load("assets/reset_button.png").convert_alpha()
+
+        self.colors = {
+        "exit": (180, 70, 70),        # 🔴 weiches dunkleres Rot (wie roter Würfel)
+        "fullscreen": (80, 110, 190), # 🔵 dunkleres Blau (wie blauer Würfel)
+        "reset": (120, 120, 120),     # ⚪ Grau bleibt gleich
+        "roll": (85, 95, 90),         # (optional unverändert)
+        }
+        
+        pygame.display.set_caption("QWIXX")
+
+        # 🔥 HIER EINBAUEN
+        icon_path = os.path.join("assets", "qwixx_window_icon.png")
+
+        if os.path.exists(icon_path):
+            icon = pygame.image.load(icon_path).convert_alpha()
+            pygame.display.set_icon(icon)
+        else:
+            print("⚠️ Icon fehlt:", icon_path)
+
+
+    # ----------------------------
+    def draw_text(self, text, x, y, center=False):
+        img = self.font_big.render(text, True, WHITE)
+        rect = img.get_rect()
+
+        if center:
+            rect.center = (x, y)
+        else:
+            rect.topleft = (x, y)
+
+        self.screen.blit(img, rect)
+
+    # ----------------------------
+    def draw_button(self, rect, text, key):
+
+        color = self.colors.get(key, (100, 100, 100))
+
+        # shadow
+        shadow = rect.move(2, 2)
+        pygame.draw.rect(self.screen, (0, 0, 0, 80), shadow, border_radius=12)
+
+        # main
+        pygame.draw.rect(self.screen, color, rect, border_radius=12)
+
+        # border
+        pygame.draw.rect(self.screen, (255, 255, 255, 35), rect, 1, border_radius=12)
+
+        txt = self.font_small.render(text, True, (255, 255, 255))
+        txt_shadow = self.font_small.render(text, True, (0, 0, 0))
+
+        txt_rect = txt.get_rect(center=rect.center)
+
+        self.screen.blit(txt_shadow, (txt_rect.x + 1, txt_rect.y + 1))
+        self.screen.blit(txt, txt_rect)
+
+    # ----------------------------
+    def draw_icon_button(self, rect, image, key):
+
+        color = self.colors.get(key, (80, 80, 80))
+
+        # shadow
+        shadow = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+        pygame.draw.rect(
+            shadow,
+            (0, 0, 0, 80),
+            (0, 0, rect.width, rect.height),
+            border_radius=14
+        )
+        self.screen.blit(shadow, (rect.x + 2, rect.y + 2))
+
+        # main
+        surface = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
+
+        pygame.draw.rect(
+            surface,
+            color,
+            (0, 0, rect.width, rect.height),
+            border_radius=14
+        )
+
+        pygame.draw.rect(
+            surface,
+            (255, 255, 255, 35),
+            (0, 0, rect.width, rect.height),
+            width=1,
+            border_radius=14
+        )
+
+        self.screen.blit(surface, rect.topleft)
+
+        # icon centered (smooth scaling)
+        padding = 10
+        icon_size = rect.width - padding * 2
+
+        img = pygame.transform.smoothscale(image, (icon_size, icon_size))
+        img_rect = img.get_rect(center=rect.center)
+
+        self.screen.blit(img, img_rect)
+
+    def draw_dice(self, x, y, size, value, color):
+
+        surface = pygame.Surface((size, size), pygame.SRCALPHA)
+
+        rect = pygame.Rect(0, 0, size, size)
+
+        # shadow (weich)
+        shadow = pygame.Surface((size, size), pygame.SRCALPHA)
+        pygame.draw.rect(shadow, (0, 0, 0, 60), rect, border_radius=18)
+        self.screen.blit(shadow, (x+3, y+3))
+
+        # main dice
+        pygame.draw.rect(surface, color, rect, border_radius=18)
+
+        # soft border (wichtig!)
+        pygame.draw.rect(surface, (255, 255, 255, 60), rect, width=2, border_radius=18)
+
+        self.screen.blit(surface, (x, y))
+
+        if value is not None:
+            txt = self.font_big.render(
+                str(value),
+                True,
+                (20, 20, 20) if color == WHITE else (255, 255, 255)
+            )
+            txt_rect = txt.get_rect(center=(x + size//2, y + size//2))
+            self.screen.blit(txt, txt_rect)
+
+    # ----------------------------
+    def draw(self):
+
+        width, height = self.screen.get_size()
+
+        self.draw_text("QWIXX", width // 2, 40, center=True)
+
+        # ---------------- BUTTONS ----------------
+        size = 36  # 🔥 square buttons
+        margin = 10
+
+        y = height - size - margin
+
+        self.btn_exit = pygame.Rect(width - size - margin, y, size, size)
+        self.btn_full = pygame.Rect(width - 2*(size + margin), y, size, size)
+        self.btn_reset = pygame.Rect(width - 3*(size + margin), y, size, size)
+
+        self.btn_roll = pygame.Rect(width // 2 - 90, height - 85, 180, 45)
+
+        # ICON BUTTONS
+        self.draw_icon_button(self.btn_exit, self.icon_exit, "exit")
+        self.draw_icon_button(self.btn_full, self.icon_full, "fullscreen")
+        self.draw_icon_button(self.btn_reset, self.icon_reset, "reset")
+
+        # ROLL BUTTON
+        self.draw_button(self.btn_roll, "WÜRFELN", "roll")
+
+        # ---------------- DICE ----------------
+        roll = self.game.roll
+        values = roll["values"] if roll else None
+
+        if values:
+            values = list(values.values())
+
+        colors = [WHITE, WHITE, RED, YELLOW, GREEN, BLUE]
+
+        dice_size = 65
+        gap = 16
+
+        bottom_total = 4 * dice_size + 3 * gap
+        bottom_start_x = (width - bottom_total) // 2
+
+        top_total = 2 * dice_size + 1 * gap
+        top_start_x = (width - top_total) // 2
+
+        top_y = height // 2 - 110
+        bottom_y = height // 2 - 30
+
+        # white dice top
+        for i in range(2):
+            x = top_start_x + i * (dice_size + gap)
+            value = values[i] if values else None
+            self.draw_dice(x, top_y, dice_size, value, colors[i])
+
+        # colored dice bottom
+        for i in range(4):
+            x = bottom_start_x + i * (dice_size + gap)
+            value = values[i + 2] if values else None
+            self.draw_dice(x, bottom_y, dice_size, value, colors[i + 2])
+
+    def handle_click(self, pos):
+        """Alle Button-Klicks hier zentral behandeln"""
+
+        if self.btn_roll.collidepoint(pos):
+            self.game.roll_dice()
+
+        elif self.btn_exit.collidepoint(pos):
+            pygame.quit()
+            exit()
+
+        elif self.btn_full.collidepoint(pos):
+            self.game.toggle_fullscreen()
+
+        elif self.btn_reset.collidepoint(pos):
+            self.game.popup.open()
