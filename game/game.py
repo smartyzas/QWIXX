@@ -1,10 +1,7 @@
 import random
+import pygame
 from game.dice import Dice
 from game.moves import get_moves
-from ui.popup import Popup
-import pygame
-
-
 
 class Game:
 
@@ -14,6 +11,11 @@ class Game:
         self.dice = Dice()
         self.roll = {"values": None}
 
+        self.fullscreen = False
+
+        # 🔥 WICHTIG
+        self.request_exit = False
+
     def add_player(self, player):
         self.players.append(player)
 
@@ -21,14 +23,9 @@ class Game:
         return self.players[self.current]
 
     def next_turn(self):
-        self.current += 1
-        if self.current >= len(self.players):
-            self.current = 0
+        self.current = (self.current + 1) % len(self.players)
 
     def update(self):
-        pass
-
-    def handle_event(self, event):
         pass
 
     def roll_dice(self):
@@ -39,19 +36,17 @@ class Game:
         if not self.roll:
             return None
         return get_moves(self.roll)
-    
+
     def reset_game(self):
         print("🔄 Reset")
-
         self.roll = {"values": None}
 
-    import pygame
-
     def toggle_fullscreen(self):
+        self.fullscreen = not self.fullscreen
 
-        screen = pygame.display.get_surface()
-
-        if screen.get_flags() & pygame.FULLSCREEN:
-            pygame.display.set_mode((1400, 900), pygame.RESIZABLE)
+        if self.fullscreen:
+            screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
         else:
-            pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
+            screen = pygame.display.set_mode((1400, 900), pygame.RESIZABLE)
+
+        return screen

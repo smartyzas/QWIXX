@@ -1,5 +1,6 @@
 import pygame
 from config import *
+from game.player import Player
 
 class Popup:
 
@@ -7,93 +8,192 @@ class Popup:
         self.screen = screen
         self.game = game
 
-        self.font_title = pygame.font.SysFont("arial", 26, bold=True)
-        self.font_small = pygame.font.SysFont("arial", 18, bold=True)
+        self.font_title = pygame.font.SysFont("arial", 28, bold=True)
+        self.font_small = pygame.font.SysFont("arial", 20, bold=True)
 
-        self.active = False
+        self.active = True
+        self.mode = "start"   # 🔥 START POPUP STANDARD
 
         self.btn_yes = pygame.Rect(0, 0, 0, 0)
         self.btn_no = pygame.Rect(0, 0, 0, 0)
+        self.slider_rect = pygame.Rect(0, 0, 0, 0)
+        self.slider_knob = pygame.Rect(0, 0, 0, 0)
 
-    # ----------------------------
-    def open(self):
+        self.player_count = 2  # default
+        self.dragging_slider = False
+
+    # ---------------- OPEN ----------------
+    def open(self, mode="reset"):
         self.active = True
+        self.mode = mode
 
     def close(self):
         self.active = False
 
-    # ----------------------------
+    # ---------------- CLICK ----------------
     def handle_click(self, pos):
+
+        if not self.active:
+            return False
+
+        # ---------------- SLIDER ----------------
+        if self.mode == "start":
+
+            if self.slider_rect.collidepoint(pos):
+                self.dragging_slider = True
+                self._update_slider(pos)
+                return True
+
+            if self.btn_yes.collidepoint(pos):
+                self._start_game()
+                self.close()
+                return True
+
+            return False
+
+        # ---------------- RESET / EXIT ----------------
+        if self.btn_yes.collidepoint(pos):
+
+            if self.mode == "reset":
+                self.game.reset_game()
+
+            elif self.mode == "exit":
+                pygame.quit()
+                raise SystemExit
+
+            self.close()
+            return True
+
+        if self.btn_no.collidepoint(pos):
+            self.close()
+            return True
+
+        return False
+        
+    def handle_release(self):
+        self.dragging_slider = False
+
+    def handle_motion(self, pos):
 
         if not self.active:
             return
 
-        if self.btn_yes.collidepoint(pos):
-            self.game.reset_game()
-            self.close()
+        if self.mode == "start" and self.dragging_slider:
+            self._update_slider(pos)
 
-        elif self.btn_no.collidepoint(pos):
-            self.close()
+    # ---------------- START GAME ----------------
+    def _start_game(self):
 
-    # ----------------------------
+        self.game.players.clear()
+
+        for i in range(self.player_count):
+            self.game.add_player(Player(f"Player {i+1}"))
+
+        print("🎮 Spiel gestartet mit", self.player_count, "Spielern")
+
+    # ---------------- SLIDER ----------------
+    def _update_slider(self, pos):
+
+        x1 = self.slider_rect.x
+        x2 = self.slider_rect.right
+
+        t = (pos[0] - x1) / (x2 - x1)
+        t = max(0, min(1, t))
+
+        # 🔥 4 feste Stops: 2,3,4,5
+        stops = [2, 3, 4, 5]
+
+        index = round(t * (len(stops) - 1))
+        index = max(0, min(len(stops) - 1, index))
+
+        self.player_count = stops[index]
+
+    def update_buttons(self, width, height):
+
+        popup_w, popup_h = 500, 360
+        px = width // 2 - popup_w // 2
+        py = height // 2 - popup_h // 2
+
+        btn_w, btn_h = 120, 50
+
+        self.btn_yes = pygame.Rect(px + 90, py + 220, btn_w, btn_h)
+        self.btn_no = pygame.Rect(px + 290, py + 220, btn_w, btn_h)
+
+    # ---------------- DRAW ----------------
     def draw(self):
 
         if not self.active:
             return
 
-        width, height = self.screen.get_size()
+        w, h = self.screen.get_size()
 
-        # Overlay
-        overlay = pygame.Surface((width, height), pygame.SRCALPHA)
-        overlay.fill((0, 0, 0, 160))
+        self.update_buttons(w, h)  # 🔥 WICHTIG
+
+        overlay = pygame.Surface((w, h), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 170))
         self.screen.blit(overlay, (0, 0))
 
-        # Popup Box
-        popup_w, popup_h = 420, 240
+        box = pygame.Rect(w//2 - 250, h//2 - 180, 500, 360)
 
-        px = width // 2 - popup_w // 2
-        py = height // 2 - popup_h // 2
+        pygame.draw.rect(self.screen, (35, 35, 40), box, border_radius=16)
+        pygame.draw.rect(self.screen, (255, 255, 255), box, 2, border_radius=16)
 
-        rect = pygame.Rect(px, py, popup_w, popup_h)
+        # ---------------- START MODE ----------------
+        if self.mode == "start":
 
-        pygame.draw.rect(self.screen, (35, 45, 50), rect, border_radius=12)
-        pygame.draw.rect(self.screen, WHITE, rect, 2, border_radius=12)
+            title = self.font_title.render("Spieler auswählen", True, WHITE)
+            self.screen.blit(title, title.get_rect(center=(w//2, box.y + 50)))
 
-        # ---------------- TEXT (2 Zeilen)
-        line1 = self.font_title.render(
-            "Wollt ihr das Spiel wirklich",
-            True,
-            WHITE
-        )
+            # TEXT
+            txt = self.font_small.render(
+                f"{self.player_count} Spieler",
+                True,
+                WHITE
+            )
+            self.screen.blit(txt, txt.get_rect(center=(w//2, box.y + 120)))
 
-        line2 = self.font_title.render(
-            "neu starten?",
-            True,
-            WHITE
-        )
+            # SLIDER BAR
+            self.slider_rect = pygame.Rect(box.x + 80, box.y + 160, 340, 8)
+            pygame.draw.rect(self.screen, (80, 80, 80), self.slider_rect, border_radius=4)
 
-        rect1 = line1.get_rect(center=(width // 2, py + 60))
-        rect2 = line2.get_rect(center=(width // 2, py + 95))
+            # KNOB POSITION
+            stops = [2, 3, 4, 5]
 
-        self.screen.blit(line1, rect1)
-        self.screen.blit(line2, rect2)
+            index = stops.index(self.player_count)
+            t = index / (len(stops) - 1)
 
-        # ---------------- BUTTONS
-        btn_w, btn_h = 120, 45
+            knob_x = self.slider_rect.x + t * self.slider_rect.width
 
-        self.btn_yes = pygame.Rect(px + 60, py + 155, btn_w, btn_h)
-        self.btn_no = pygame.Rect(px + 240, py + 155, btn_w, btn_h)
+            self.slider_knob = pygame.Rect(knob_x - 10, self.slider_rect.y - 6, 20, 20)
 
-        self._draw_button(self.btn_yes, "Ja", (80, 160, 80))
-        self._draw_button(self.btn_no, "Nein", (180, 80, 80))
+            pygame.draw.rect(self.screen, (255, 255, 255), self.slider_knob, border_radius=10)
 
-    # ----------------------------
-    def _draw_button(self, rect, text, color):
+            # START BUTTON
+            self.btn_yes = pygame.Rect(w//2 - 70, box.y + 240, 140, 50)
 
-        pygame.draw.rect(self.screen, color, rect, border_radius=10)
-        pygame.draw.rect(self.screen, WHITE, rect, 1, border_radius=10)
+            pygame.draw.rect(self.screen, (70, 180, 90), self.btn_yes, border_radius=12)
+            pygame.draw.rect(self.screen, (255, 255, 255), self.btn_yes, 2, border_radius=12)
 
-        txt = self.font_small.render(text, True, WHITE)
-        txt_rect = txt.get_rect(center=rect.center)
+            txt = self.font_small.render("START", True, WHITE)
+            self.screen.blit(txt, txt.get_rect(center=self.btn_yes.center))
 
-        self.screen.blit(txt, txt_rect)
+            return
+
+        # ---------------- RESET / EXIT ----------------
+        if self.mode in ("reset", "exit"):
+
+            text = "Neu starten?" if self.mode == "reset" else "Spiel verlassen?"
+
+            title = self.font_title.render(text, True, WHITE)
+            self.screen.blit(title, title.get_rect(center=(w//2, box.y + 90)))
+
+            self.btn_yes = pygame.Rect(w//2 - 160, box.y + 200, 120, 50)
+            self.btn_no = pygame.Rect(w//2 + 40, box.y + 200, 120, 50)
+
+            pygame.draw.rect(self.screen, (70, 180, 90), self.btn_yes, border_radius=12)
+            pygame.draw.rect(self.screen, (200, 70, 70), self.btn_no, border_radius=12)
+
+            for btn, label in [(self.btn_yes, "JA"), (self.btn_no, "NEIN")]:
+                pygame.draw.rect(self.screen, (255, 255, 255), btn, 2, border_radius=12)
+                txt = self.font_small.render(label, True, WHITE)
+                self.screen.blit(txt, txt.get_rect(center=btn.center))

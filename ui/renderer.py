@@ -10,6 +10,7 @@ class Renderer:
 
         self.font_big = pygame.font.SysFont("arial", 40, bold=True)
         self.font_small = pygame.font.SysFont("arial", 17, bold=True)
+        self.font_logo = pygame.font.SysFont("arial", 24, bold=True)
 
         # buttons
         self.btn_exit = pygame.Rect(0, 0, 0, 0)
@@ -43,7 +44,7 @@ class Renderer:
 
     # ----------------------------
     def draw_text(self, text, x, y, center=False):
-        img = self.font_big.render(text, True, WHITE)
+        img = self.font_logo.render(text, True, (220, 220, 220))
         rect = img.get_rect()
 
         if center:
@@ -153,7 +154,15 @@ class Renderer:
 
         width, height = self.screen.get_size()
 
-        self.draw_text("QWIXX", width // 2, 40, center=True)
+        scale = width / 1400
+        scale = max(0.75, min(scale, 1.2))
+
+        btn_size = int(36 * scale)
+        btn_roll_w = int(180 * scale)
+        btn_roll_h = int(45 * scale)
+        gap = int(10 * scale)
+
+        self.draw_text("QWIXX", width // 2, height - 30, center=True)
 
         # ---------------- BUTTONS ----------------
         size = 36  # 🔥 square buttons
@@ -161,11 +170,18 @@ class Renderer:
 
         y = height - size - margin
 
-        self.btn_exit = pygame.Rect(width - size - margin, y, size, size)
-        self.btn_full = pygame.Rect(width - 2*(size + margin), y, size, size)
-        self.btn_reset = pygame.Rect(width - 3*(size + margin), y, size, size)
+        self.btn_exit = pygame.Rect(width - btn_size - 10, height - btn_size - 10, btn_size, btn_size)
 
-        self.btn_roll = pygame.Rect(width // 2 - 90, height - 85, 180, 45)
+        self.btn_full = pygame.Rect(width - 2*(btn_size + 10), height - btn_size - 10, btn_size, btn_size)
+
+        self.btn_reset = pygame.Rect(width - 3*(btn_size + 10), height - btn_size - 10, btn_size, btn_size)
+
+        self.btn_roll = pygame.Rect(
+            width // 2 - btn_roll_w // 2,
+            height - int(120 * scale),
+            btn_roll_w,
+            btn_roll_h
+        )
 
         # ICON BUTTONS
         self.draw_icon_button(self.btn_exit, self.icon_exit, "exit")
@@ -184,8 +200,9 @@ class Renderer:
 
         colors = [WHITE, WHITE, RED, YELLOW, GREEN, BLUE]
 
-        dice_size = 65
-        gap = 16
+        base_size = 65
+        dice_size = int(base_size * scale * 0.9)
+        gap = max(4, dice_size // 6)
 
         bottom_total = 4 * dice_size + 3 * gap
         bottom_start_x = (width - bottom_total) // 2
@@ -193,8 +210,8 @@ class Renderer:
         top_total = 2 * dice_size + 1 * gap
         top_start_x = (width - top_total) // 2
 
-        top_y = height // 2 - 110
-        bottom_y = height // 2 - 30
+        top_y = height // 2 - dice_size - 35
+        bottom_y = height // 2 + 10
 
         # white dice top
         for i in range(2):
@@ -209,17 +226,23 @@ class Renderer:
             self.draw_dice(x, bottom_y, dice_size, value, colors[i + 2])
 
     def handle_click(self, pos):
-        """Alle Button-Klicks hier zentral behandeln"""
+        """Handle all button clicks centrally."""
+
+        # Priorität: Exit > Fullscreen > Reset > Roll
+        if self.btn_exit.collidepoint(pos):
+            print("🔥 EXIT CLICKED")
+            self.game.popup.open("exit")
+            return
+
+        if self.btn_full.collidepoint(pos):
+            self.screen = self.game.toggle_fullscreen()
+            return
+
+        if self.btn_reset.collidepoint(pos):
+            print("🔄 RESET CLICKED")
+            self.game.popup.open("reset")
+            return
 
         if self.btn_roll.collidepoint(pos):
             self.game.roll_dice()
-
-        elif self.btn_exit.collidepoint(pos):
-            pygame.quit()
-            exit()
-
-        elif self.btn_full.collidepoint(pos):
-            self.game.toggle_fullscreen()
-
-        elif self.btn_reset.collidepoint(pos):
-            self.game.popup.open()
+            return

@@ -8,7 +8,8 @@ from game.game import Game
 from game.player import Player
 from ui.renderer import Renderer
 from config import BG_COLOR
-
+print(Renderer.__module__)
+# print(ui.renderer.__file__)  # Uncomment for debugging if needed
 pygame.init()
 
 print("🎮 Pygame initialisiert")
@@ -24,6 +25,7 @@ game = Game()
 
 popup = Popup(screen, game)
 game.popup = popup   # 🔥 WICHTIG
+popup.open("start")   # 🔥 START POPUP AUTO
 
 renderer = Renderer(screen, game)
 
@@ -37,6 +39,8 @@ print("👥 Spieler hinzugefügt")
 
 running = True
 
+running = True
+
 while running:
 
     screen.fill(BG_COLOR)
@@ -44,24 +48,44 @@ while running:
     for event in pygame.event.get():
 
         if event.type == pygame.QUIT:
-            print("❌ Fenster geschlossen")
             running = False
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            game.popup.handle_click(event.pos)
-            renderer.handle_click(event.pos)
+        elif event.type == pygame.MOUSEBUTTONDOWN:
 
-        if event.type == pygame.KEYDOWN:
+            if game.popup.active:
+                game.popup.handle_click(event.pos)
+
+            else:
+                renderer.handle_click(event.pos)
+
+        elif event.type == pygame.MOUSEBUTTONUP:
+            game.popup.handle_release()
+
+        elif event.type == pygame.MOUSEMOTION:
+            game.popup.handle_motion(event.pos)
+
+        elif event.type == pygame.KEYDOWN:
+
             if event.key == pygame.K_SPACE:
-                print("🎲 Würfeln via SPACE")
                 game.roll_dice()
 
+            elif event.key == pygame.K_ESCAPE and game.fullscreen:
+                game.toggle_fullscreen()
+
+        elif event.type == pygame.VIDEORESIZE and not game.fullscreen:
+
+            screen = pygame.display.set_mode(
+                (event.w, event.h),
+                pygame.RESIZABLE
+            )
+
+            renderer.screen = screen
+            popup.screen = screen
+
+    # ---------------- DRAW ----------------
     game.update()
     renderer.draw()
     game.popup.draw()
 
     pygame.display.flip()
     clock.tick(60)
-
-pygame.quit()
-sys.exit()
