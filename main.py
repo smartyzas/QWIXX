@@ -1,6 +1,7 @@
 import pygame
 import sys
 from ui.popup import Popup
+from config import *
 
 print("🚀 START main.py wird ausgeführt...")
 
@@ -30,10 +31,6 @@ popup.open("start")   # 🔥 START POPUP AUTO
 renderer = Renderer(screen, game)
 
 print("🧠 Game + Renderer erstellt")
-
-# TEST PLAYERS
-game.add_player(Player("Matas"))
-game.add_player(Player("Leni"))
 
 print("👥 Spieler hinzugefügt")
 

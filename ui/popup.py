@@ -1,6 +1,9 @@
 import pygame
 from config import *
 from game.player import Player
+from config import PLAYER_COLORS
+
+
 
 class Popup:
 
@@ -24,6 +27,7 @@ class Popup:
 
     # ---------------- OPEN ----------------
     def open(self, mode="reset"):
+        print("POPUP OPEN:", mode)
         self.active = True
         self.mode = mode
 
@@ -45,30 +49,36 @@ class Popup:
                 return True
 
             if self.btn_yes.collidepoint(pos):
+
+                for i in range(self.player_count):
+                    color = PLAYER_COLORS[i % len(PLAYER_COLORS)]
+                    self.game.add_player(Player(f"Player {i+1}", color))
+
                 self._start_game()
                 self.close()
                 return True
 
             return False
-
+        
         # ---------------- RESET / EXIT ----------------
-        if self.btn_yes.collidepoint(pos):
+        if self.mode == "reset":
 
-            if self.mode == "reset":
+            if self.btn_yes.collidepoint(pos):
+
                 self.game.reset_game()
 
-            elif self.mode == "exit":
-                pygame.quit()
-                raise SystemExit
+                # 👉 WICHTIG: danach START SCREEN
+                self.open("start")
 
-            self.close()
-            return True
+                return True       # sicherstellen dass Popup offen bleibt
 
-        if self.btn_no.collidepoint(pos):
-            self.close()
-            return True
+        elif self.mode == "exit":
+            pygame.quit()
+            raise SystemExit
 
-        return False
+        self.close()
+        return True
+
         
     def handle_release(self):
         self.dragging_slider = False
@@ -87,7 +97,8 @@ class Popup:
         self.game.players.clear()
 
         for i in range(self.player_count):
-            self.game.add_player(Player(f"Player {i+1}"))
+            color = PLAYER_COLORS[i % len(PLAYER_COLORS)]
+            self.game.add_player(Player(f"Player {i+1}", color))
 
         print("🎮 Spiel gestartet mit", self.player_count, "Spielern")
 

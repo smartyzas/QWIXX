@@ -6,10 +6,21 @@ BTN_FULL = (80, 120, 180)
 BTN_RESET = (120, 120, 120)
 BTN_ROLL = (70, 90, 85)
 
+# Player colors
+RED = (200, 60, 60)
+YELLOW = (220, 200, 70)
+GREEN = (70, 180, 90)
+BLUE = (70, 120, 220)
+GRAY = (120, 120, 120)
+GRAY2 = (199, 193, 193)
 WHITE = (240, 240, 240)
 BLACK = (20, 20, 20)
 
-RED = (210, 90, 90)
-YELLOW = (230, 200, 90)
-GREEN = (90, 170, 120)
-BLUE = (90, 140, 220)
+PLAYER_COLORS = [
+    RED,
+    YELLOW,
+    GREEN,
+    BLUE,
+    GRAY,
+    GRAY2
+]

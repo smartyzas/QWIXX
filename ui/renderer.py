@@ -164,6 +164,47 @@ class Renderer:
 
         self.draw_text("QWIXX", width // 2, height - 30, center=True)
 
+        y_start = 120
+
+        for i, player in enumerate(self.game.players):
+
+            x = 100
+            y = y_start + i * 190
+
+            # ---------------- PLAYER ICON ----------------
+            # 🔵 BODY (großer Kreis)
+            pygame.draw.circle(
+                self.screen,
+                player.color,
+                (x + 20, y + 30),
+                40
+            )
+
+            # 🔵 HEAD (kleiner Kreis oben drauf)
+            pygame.draw.circle(
+                self.screen,
+                player.color,
+                (x + 20, y - 25),
+                30
+            )
+
+            # ---------------- NAME (ÜBER ICON) ----------------
+            name_text = self.font_small.render(player.name, True, WHITE)
+            name_rect = name_text.get_rect(center=(x + 23, y - 70))
+            self.screen.blit(name_text, name_rect)
+
+            # ---------------- SCORE (NEBEN NAME - PRO PERSON!) ----------------
+            score_colors = [GRAY2, RED, YELLOW, GREEN, BLUE]
+
+            for j, color in enumerate(score_colors):
+
+                pygame.draw.circle(
+                    self.screen,
+                    color,
+                    (x + 90 + j * 50, y - 70),   # 👉 gleiche Höhe wie Name
+                    25
+                )
+
         # ---------------- BUTTONS ----------------
         size = 36  # 🔥 square buttons
         margin = 10
@@ -226,11 +267,8 @@ class Renderer:
             self.draw_dice(x, bottom_y, dice_size, value, colors[i + 2])
 
     def handle_click(self, pos):
-        """Handle all button clicks centrally."""
 
-        # Priorität: Exit > Fullscreen > Reset > Roll
         if self.btn_exit.collidepoint(pos):
-            print("🔥 EXIT CLICKED")
             self.game.popup.open("exit")
             return
 
@@ -240,7 +278,7 @@ class Renderer:
 
         if self.btn_reset.collidepoint(pos):
             print("🔄 RESET CLICKED")
-            self.game.popup.open("reset")
+            self.game.popup.open("reset")   # NUR POPUP ÖFFNEN
             return
 
         if self.btn_roll.collidepoint(pos):
