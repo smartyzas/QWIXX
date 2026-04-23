@@ -15,5 +15,3 @@ Digitale Version des Würfelspiels **Qwixx**, umgesetzt mit Python.
 Dieses Spiel ist ein persönliches Projekt und gleichzeitig ein Geschenk.
 
 > 💛 Dieses Spiel ist für Leni.
-
-Ziel ist es, das originale Qwixx-Spiel als Web-Spiel umzusetzen.
