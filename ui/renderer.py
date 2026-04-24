@@ -149,7 +149,7 @@ class Renderer:
             txt_rect = txt.get_rect(center=(x + size//2, y + size//2))
             self.screen.blit(txt, txt_rect)
 
-    # ----------------------------
+        # ----------------------------
     def draw(self):
 
         width, height = self.screen.get_size()
@@ -160,62 +160,161 @@ class Renderer:
         btn_size = int(36 * scale)
         btn_roll_w = int(180 * scale)
         btn_roll_h = int(45 * scale)
-        gap = int(10 * scale)
 
         self.draw_text("QWIXX", width // 2, height - 30, center=True)
 
-        y_start = 120
+        # =====================================================
+        # SPIELER POSITIONEN
+        # =====================================================
+
+        count = len(self.game.players)
+
+        positions = []
+
+        if count == 2:
+            positions = [
+                (40, 330),
+                (width - 360, 330)
+            ]
+
+        elif count == 3:
+            positions = [
+                (40, 100),
+                (40, 520),
+                (width - 360, 330)
+            ]
+
+        elif count == 4:
+            positions = [
+                (40, 100),
+                (40, 520),
+                (width - 360, 100),
+                (width - 360, 520)
+            ]
+
+        elif count == 5:
+            positions = [
+                (40, 70),
+                (40, 330),
+                (40, 590),
+                (width - 360, 180),
+                (width - 360, 470)
+            ]
+
+        # =====================================================
+        # SPIELER ZEICHNEN
+        # =====================================================
 
         for i, player in enumerate(self.game.players):
 
-            x = 100
-            y = y_start + i * 190
+            if i >= len(positions):
+                continue
 
-            # ---------------- PLAYER ICON ----------------
-            # 🔵 BODY (großer Kreis)
-            pygame.draw.circle(
-                self.screen,
-                player.color,
-                (x + 20, y + 30),
-                40
-            )
+            x, y = positions[i]
 
-            # 🔵 HEAD (kleiner Kreis oben drauf)
-            pygame.draw.circle(
-                self.screen,
-                player.color,
-                (x + 20, y - 25),
-                30
-            )
+            # rechte Seite?
+            right_side = x > width / 2
 
-            # ---------------- NAME (ÜBER ICON) ----------------
-            name_text = self.font_small.render(player.name, True, WHITE)
-            name_rect = name_text.get_rect(center=(x + 23, y - 70))
-            self.screen.blit(name_text, name_rect)
+            # -------------------------------------------------
+            # LINKE SEITE NORMAL
+            # -------------------------------------------------
+            if not right_side:
 
-            # ---------------- SCORE (NEBEN NAME - PRO PERSON!) ----------------
-            score_colors = [GRAY2, RED, YELLOW, GREEN, BLUE]
-
-            for j, color in enumerate(score_colors):
-
+                # BODY
                 pygame.draw.circle(
                     self.screen,
-                    color,
-                    (x + 90 + j * 50, y - 70),   # 👉 gleiche Höhe wie Name
-                    25
+                    player.color,
+                    (x + 20, y + 30),
+                    40
                 )
 
-        # ---------------- BUTTONS ----------------
-        size = 36  # 🔥 square buttons
-        margin = 10
+                # HEAD
+                pygame.draw.circle(
+                    self.screen,
+                    player.color,
+                    (x + 20, y - 20),
+                    30
+                )
 
-        y = height - size - margin
+                # NAME
+                name_text = self.font_small.render(player.name, True, WHITE)
+                name_rect = name_text.get_rect(center=(x + 25, y - 70))
+                self.screen.blit(name_text, name_rect)
 
-        self.btn_exit = pygame.Rect(width - btn_size - 10, height - btn_size - 10, btn_size, btn_size)
+                # SCORE LINKS -> RECHTS
+                score_colors = [GRAY2, RED, YELLOW, GREEN, BLUE]
 
-        self.btn_full = pygame.Rect(width - 2*(btn_size + 10), height - btn_size - 10, btn_size, btn_size)
+                for j, color in enumerate(score_colors):
 
-        self.btn_reset = pygame.Rect(width - 3*(btn_size + 10), height - btn_size - 10, btn_size, btn_size)
+                    pygame.draw.circle(
+                        self.screen,
+                        color,
+                        (x + 95 + j * 50, y - 70),
+                        25
+                    )
+
+            # -------------------------------------------------
+            # RECHTE SEITE GESPIEGELT
+            # -------------------------------------------------
+            else:
+
+                # BODY
+                pygame.draw.circle(
+                    self.screen,
+                    player.color,
+                    (x + 300, y + 30),
+                    40
+                )
+
+                # HEAD
+                pygame.draw.circle(
+                    self.screen,
+                    player.color,
+                    (x + 300, y - 20),
+                    30
+                )
+
+                # NAME LINKS VOM KOPF
+                name_text = self.font_small.render(player.name, True, WHITE)
+                name_rect = name_text.get_rect(midright=(x + 330, y - 70))
+                self.screen.blit(name_text, name_rect)
+
+                # SCORE GANZ LINKS DAVON
+                score_colors = [GRAY2, RED, YELLOW, GREEN, BLUE]
+
+                for j, color in enumerate(score_colors):
+
+                    pygame.draw.circle(
+                        self.screen,
+                        color,
+                        (x + 29 + j * 50, y - 70),
+                        25
+                    )
+
+        # =====================================================
+        # BUTTONS
+        # =====================================================
+
+        self.btn_exit = pygame.Rect(
+            width - btn_size - 10,
+            height - btn_size - 10,
+            btn_size,
+            btn_size
+        )
+
+        self.btn_full = pygame.Rect(
+            width - 2 * (btn_size + 10),
+            height - btn_size - 10,
+            btn_size,
+            btn_size
+        )
+
+        self.btn_reset = pygame.Rect(
+            width - 3 * (btn_size + 10),
+            height - btn_size - 10,
+            btn_size,
+            btn_size
+        )
 
         self.btn_roll = pygame.Rect(
             width // 2 - btn_roll_w // 2,
@@ -224,15 +323,16 @@ class Renderer:
             btn_roll_h
         )
 
-        # ICON BUTTONS
         self.draw_icon_button(self.btn_exit, self.icon_exit, "exit")
         self.draw_icon_button(self.btn_full, self.icon_full, "fullscreen")
         self.draw_icon_button(self.btn_reset, self.icon_reset, "reset")
 
-        # ROLL BUTTON
         self.draw_button(self.btn_roll, "WÜRFELN", "roll")
 
-        # ---------------- DICE ----------------
+        # =====================================================
+        # WÜRFEL
+        # =====================================================
+
         roll = self.game.roll
         values = roll["values"] if roll else None
 
@@ -248,24 +348,39 @@ class Renderer:
         bottom_total = 4 * dice_size + 3 * gap
         bottom_start_x = (width - bottom_total) // 2
 
-        top_total = 2 * dice_size + 1 * gap
+        top_total = 2 * dice_size + gap
         top_start_x = (width - top_total) // 2
 
         top_y = height // 2 - dice_size - 35
         bottom_y = height // 2 + 10
 
-        # white dice top
+        # weiße Würfel
         for i in range(2):
+
             x = top_start_x + i * (dice_size + gap)
             value = values[i] if values else None
-            self.draw_dice(x, top_y, dice_size, value, colors[i])
 
-        # colored dice bottom
+            self.draw_dice(
+                x,
+                top_y,
+                dice_size,
+                value,
+                colors[i]
+            )
+
+        # farbige Würfel
         for i in range(4):
+
             x = bottom_start_x + i * (dice_size + gap)
             value = values[i + 2] if values else None
-            self.draw_dice(x, bottom_y, dice_size, value, colors[i + 2])
 
+            self.draw_dice(
+                x,
+                bottom_y,
+                dice_size,
+                value,
+                colors[i + 2]
+            )
     def handle_click(self, pos):
 
         if self.btn_exit.collidepoint(pos):
