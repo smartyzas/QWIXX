@@ -169,36 +169,45 @@ class Renderer:
 
         count = len(self.game.players)
 
+        w, h = self.screen.get_size()
+
+        left_x = int(w * 0.03)
+        right_x = int(w * 0.80)
+
+        top = int(h * 0.15)
+        bottom = int(h * 0.60)
+        mid = int(h * 0.35)
+
         positions = []
 
         if count == 2:
             positions = [
-                (40, 330),
-                (width - 360, 330)
+                (left_x, mid),
+                (right_x, mid)
             ]
 
         elif count == 3:
             positions = [
-                (40, 100),
-                (40, 520),
-                (width - 360, 330)
+                (left_x, bottom),
+                (int(w * 0.45), top),
+                (right_x, bottom)
             ]
 
         elif count == 4:
             positions = [
-                (40, 100),
-                (40, 520),
-                (width - 360, 100),
-                (width - 360, 520)
+                (left_x, top),
+                (left_x, bottom),
+                (right_x, top),
+                (right_x, bottom)
             ]
 
         elif count == 5:
             positions = [
-                (40, 70),
-                (40, 330),
-                (40, 590),
-                (width - 360, 180),
-                (width - 360, 470)
+                (left_x, top),
+                (left_x, bottom),
+                (int(w * 0.45), top),
+                (right_x, top),
+                (right_x, bottom)
             ]
 
         # =====================================================
