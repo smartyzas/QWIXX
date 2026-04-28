@@ -15,8 +15,8 @@ pygame.init()
 
 print("🎮 Pygame initialisiert")
 
-screen = pygame.display.set_mode((1400, 900), pygame.RESIZABLE)
-pygame.display.set_caption("QWIXX")
+pygame.init()
+screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN)
 
 print("🪟 Fenster erstellt")
 
@@ -63,11 +63,17 @@ while running:
 
         elif event.type == pygame.KEYDOWN:
 
-            if event.key == pygame.K_SPACE:
+            if game.popup.active:
+                game.popup.handle_keydown(event)   # ← NEU ganz oben
+
+            elif event.key == pygame.K_SPACE:
                 game.roll_dice()
 
-            elif event.key == pygame.K_ESCAPE and game.fullscreen:
-                game.toggle_fullscreen()
+            elif event.key == pygame.K_ESCAPE:
+                game.popup.open("exit")
+
+            elif event.key == pygame.K_r:
+                game.popup.open("reset")
 
         elif event.type == pygame.VIDEORESIZE and not game.fullscreen:
 
