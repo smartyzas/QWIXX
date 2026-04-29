@@ -44,3 +44,13 @@ class Board:
 
         self.marked[color].append(value)
         return True
+    
+    def lock_row(self, color):
+        self.locked[color] = True
+
+    def get_score(self, color):
+        crosses = len(self.marked[color])
+        if self.locked[color]:
+            crosses += 1
+        # Dreieckszahl: n*(n+1)/2
+        return crosses * (crosses + 1) // 2

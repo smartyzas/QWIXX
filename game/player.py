@@ -1,20 +1,16 @@
 # game/player.py
-
 from game.board import Board
 
-
 class Player:
-
     def __init__(self, name, color):
         self.name = name
         self.color = color
+        self.board = Board()   # ← NEU
         self.score = {
-            "red": 0,
-            "yellow": 0,
-            "green": 0,
-            "blue": 0
+            "red": 0, "yellow": 0, "green": 0, "blue": 0
         }
-        
+        self.penalty = 0       # ← NEU (war nicht initialisiert)
+
     def add_penalty(self, value=5):
         self.penalty -= value
 

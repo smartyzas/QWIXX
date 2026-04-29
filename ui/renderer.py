@@ -19,6 +19,7 @@ class Renderer:
         self.btn_exit = pygame.Rect(0, 0, 0, 0)
         self.btn_reset = pygame.Rect(0, 0, 0, 0)
         self.btn_roll = pygame.Rect(0, 0, 0, 0)
+        self.cell_rects = {}   # ← NEU, nach self.btn_roll
 
         # icons
         self.icon_exit = pygame.image.load("assets/exit_button.png").convert_alpha()
@@ -147,64 +148,86 @@ class Renderer:
 
         # ----------------------------
 
-    def draw_board(self, x, y, scale=1.0):
+    def draw_board(self, x, y, scale=1.0, player=None):
 
-            row_h = int(38 * scale)
-            cell_w = int(46 * scale)
-            gap = 5
+        row_h = int(38 * scale)
+        cell_w = int(46 * scale)
+        gap = 5
 
-            colors = [
-                (200, 70, 70),     # rot
-                (230, 210, 60),    # gelb
-                (70, 170, 70),     # grün
-                (70, 110, 220)     # blau
-            ]
+        colors = [
+            (200, 70, 70),
+            (230, 210, 60),
+            (70, 170, 70),
+            (70, 110, 220)
+        ]
+        row_names = ["red", "yellow", "green", "blue"]
+        LOCKED_COLOR = (85, 95, 90)  # Grau für gesperrte Reihe
+        LOCK_READY   = (190, 160, 50)    # Gold wenn Schloss klickbar
 
-            rows = [
-                list(range(2, 13)),
-                list(range(2, 13)),
-                list(range(12, 1, -1)),
-                list(range(12, 1, -1))
-            ]
+        rows = [
+            list(range(2, 13)),
+            list(range(2, 13)),
+            list(range(12, 1, -1)),
+            list(range(12, 1, -1))
+        ]
 
-            for r in range(4):
+        for r in range(4):
+            row_y = y + r * (row_h + gap)
+            row_color = row_names[r]
 
-                row_y = y + r * (row_h + gap)
+            is_locked = player and player.board.locked[row_color]
+            can_lock  = player and len(player.board.marked[row_color]) >= 5 and not is_locked
 
-                for i, num in enumerate(rows[r]):
-
-                    rect = pygame.Rect(
-                        x + i * (cell_w + gap),
-                        row_y,
-                        cell_w,
-                        row_h
-                    )
-
-                    pygame.draw.rect(self.screen, colors[r], rect, border_radius=5)
-                    pygame.draw.rect(self.screen, WHITE, rect, 1, border_radius=5)
-
-                    txt = self.font_small.render(str(num), True, BLACK)
-                    txt_rect = txt.get_rect(center=rect.center)
-                    self.screen.blit(txt, txt_rect)
-
-                # Schloss Feld rechts
-                lock_rect = pygame.Rect(
-                    x + 11 * (cell_w + gap) + 8,
+            for i, num in enumerate(rows[r]):
+                rect = pygame.Rect(
+                    x + i * (cell_w + gap),
                     row_y,
-                    row_h,
+                    cell_w,
                     row_h
                 )
 
-                pygame.draw.rect(self.screen, (128, 110, 108), lock_rect, border_radius=5)
-                pygame.draw.rect(self.screen, WHITE, lock_rect, 1, border_radius=5)
+                cell_color = LOCKED_COLOR if is_locked else colors[r]
+                pygame.draw.rect(self.screen, cell_color, rect, border_radius=5)
+                pygame.draw.rect(self.screen, WHITE, rect, 1, border_radius=5)
 
-                # NEU (richtig):
-                padding = 4
-                icon_size = lock_rect.width - padding * 2
-                lock_img = pygame.transform.smoothscale(self.icon_lock_field, (icon_size, icon_size))
-                lock_img_rect = lock_img.get_rect(center=lock_rect.center)
-                self.screen.blit(lock_img, lock_img_rect)
+                if player and num in player.board.marked[row_color]:
+                    x_txt = self.font_small.render("X", True, (255, 255, 255) if is_locked else BLACK)
+                    self.screen.blit(x_txt, x_txt.get_rect(center=rect.center))
+                else:
+                    txt_color = (120, 120, 120) if is_locked else BLACK
+                    txt = self.font_small.render(str(num), True, txt_color)
+                    self.screen.blit(txt, txt.get_rect(center=rect.center))
 
+                if player:
+                    self.cell_rects[(id(player), row_color, num)] = rect
+
+            # Schloss Feld
+            lock_rect = pygame.Rect(
+                x + 11 * (cell_w + gap) + 8,
+                row_y,
+                row_h,
+                row_h
+            )
+
+            # Farbe: Gold=klickbar, Grau=gesperrt, Normal=inaktiv
+            if is_locked:
+                lock_bg = LOCKED_COLOR
+            elif can_lock:
+                lock_bg = LOCK_READY
+            else:
+                lock_bg = (128, 110, 108)
+
+            pygame.draw.rect(self.screen, lock_bg, lock_rect, border_radius=5)
+            pygame.draw.rect(self.screen, WHITE, lock_rect, 1, border_radius=5)
+
+            padding = 4
+            icon_size = lock_rect.width - padding * 2
+            lock_img = pygame.transform.smoothscale(self.icon_lock_field, (icon_size, icon_size))
+            self.screen.blit(lock_img, lock_img.get_rect(center=lock_rect.center))
+
+            # Schloss Rect speichern für Klick
+            if player:
+                self.cell_rects[(id(player), row_color, "lock")] = lock_rect
 
     def draw_player_name(self, name, char_x, base_y):
         if len(name) <= 9:
@@ -236,6 +259,7 @@ class Renderer:
         if self.game.popup.active:
             return
         width, height = self.screen.get_size()
+        self.cell_rects = {}
 
         scale = width / 1400
         scale = max(0.75, min(scale, 1.2))
@@ -345,39 +369,29 @@ class Renderer:
                 body_y = y + body_r
                 head_y = y - int(15 * player_scale)
 
-                pygame.draw.circle(self.screen, player.color,
-                                (char_x, body_y - 10), body_r)
+                pygame.draw.circle(self.screen, player.color, (char_x, body_y - 10), body_r)
+                pygame.draw.circle(self.screen, player.color, (char_x, head_y - 10), head_r)
 
-                pygame.draw.circle(self.screen, player.color,
-                                (char_x, head_y - 10), head_r)
-
-                name_rect = self.draw_player_name(
-                    player.name,
-                    char_x,
-                    y - int(58 * player_scale) - 15
-                )
+                self.draw_player_name(player.name, char_x, y - int(58 * player_scale) - 15)
 
                 score_colors = [GRAY2, RED, YELLOW, GREEN, BLUE]
+                row_names    = [None, "red", "yellow", "green", "blue"]
+                start_x      = x + int(295 * player_scale)      # ← fix definiert
 
-                start_x = x + int(300 * player_scale)
-
-                for j, color in enumerate(score_colors):
-                    pygame.draw.circle(
-                        self.screen,
-                        color,
-                        (
-                            start_x + j * int(44 * player_scale) - 10,
-                            y - int(72 * player_scale)
-                        ),
-                        score_r
-                    )
-
-                board_scale = base_scale * 1.1
+                for j, sc in enumerate(score_colors):
+                    cx = start_x + j * int(44 * player_scale)
+                    cy = y - int(72 * player_scale)
+                    pygame.draw.circle(self.screen, sc, (cx, cy), score_r)
+                    if row_names[j] and player.board.locked[row_names[j]]:
+                        pts = player.board.get_score(row_names[j])
+                        pts_txt = self.font_small.render(str(pts), True, WHITE)
+                        self.screen.blit(pts_txt, pts_txt.get_rect(center=(cx, cy)))
 
                 self.draw_board(
                     x + int(60 * base_scale),
                     y - int(45 * base_scale),
-                    board_scale
+                    base_scale * 1.1,
+                    player=player
                 )
 
             # =================================================
@@ -389,43 +403,32 @@ class Renderer:
                 body_y = y + body_r
                 head_y = y - int(15 * player_scale)
 
-                pygame.draw.circle(self.screen, player.color,
-                                (char_x, body_y - 10), body_r)
+                pygame.draw.circle(self.screen, player.color, (char_x, body_y - 10), body_r)
+                pygame.draw.circle(self.screen, player.color, (char_x, head_y - 10), head_r)
 
-                pygame.draw.circle(self.screen, player.color,
-                                (char_x, head_y - 10), head_r)
-
-                name_rect = self.draw_player_name(
-                    player.name,
-                    char_x,
-                    y - int(58 * player_scale) - 15
-                )
+                self.draw_player_name(player.name, char_x, y - int(75 * player_scale))
 
                 score_colors = [GRAY2, RED, YELLOW, GREEN, BLUE]
+                row_names    = [None, "red", "yellow", "green", "blue"]
+                start_x      = width - int(510 * player_scale)  # ← fix definiert
 
-                start_x = width - int(510 * player_scale)
+                for j, sc in enumerate(score_colors):
+                    cx = start_x + j * int(44 * player_scale)
+                    cy = y - int(72 * player_scale)
+                    pygame.draw.circle(self.screen, sc, (cx, cy), score_r)
+                    if row_names[j] and player.board.locked[row_names[j]]:
+                        pts = player.board.get_score(row_names[j])
+                        pts_txt = self.font_small.render(str(pts), True, WHITE)
+                        self.screen.blit(pts_txt, pts_txt.get_rect(center=(cx, cy)))
 
-                for j, color in enumerate(score_colors):
-                    pygame.draw.circle(
-                        self.screen,
-                        color,
-                        (
-                            start_x + j * int(44 * player_scale) - 1,
-                            y - int(72 * player_scale)
-                        ),
-                        score_r
-                    )
+                board_scale   = base_scale * 1.1
+                right_margin  = int(width * 0.004)
+                board_width   = int(12 * (46 * board_scale + 5))
+                board_x       = width - right_margin - board_width - int(80 * player_scale)
+                board_y       = y - int(45 * player_scale)
 
-                # ✅ FIX: stabiles Board rechts
-                board_scale = base_scale * 1.1
+                self.draw_board(board_x, board_y, board_scale, player=player)
 
-                right_margin = int(width * 0.004)
-                board_width = int(12 * (46 * board_scale + 5))
-
-                board_x = width - right_margin - board_width - int(80 * player_scale)
-                board_y = y - int(45 * player_scale)
-
-                self.draw_board(board_x, board_y, board_scale)
 
         # =====================================================
         # BUTTONS
@@ -512,10 +515,29 @@ class Renderer:
             return
 
         if self.btn_reset.collidepoint(pos):
-            print("🔄 RESET CLICKED")
-            self.game.popup.open("reset")   # NUR POPUP ÖFFNEN
+            self.game.popup.open("reset")
             return
 
         if self.btn_roll.collidepoint(pos):
             self.game.roll_dice()
             return
+
+        # ← NEU: Felder anklicken
+        for (player_id, row_color, num), rect in self.cell_rects.items():
+            if rect.collidepoint(pos):
+                for player in self.game.players:
+                    if id(player) == player_id:
+
+                        if num == "lock":
+                            if len(player.board.marked[row_color]) >= 5 and not player.board.locked[row_color]:
+                                player.board.lock_row(row_color)
+                        else:
+                            if not player.board.locked[row_color]:
+                                if player.board.mark(row_color, num):
+                                    last_field = {
+                                        "red": 12, "yellow": 12,
+                                        "green": 2, "blue": 2
+                                    }
+                                    if num == last_field[row_color]:
+                                        player.board.lock_row(row_color)
+                return
