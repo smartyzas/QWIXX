@@ -20,6 +20,7 @@ class Renderer:
         self.btn_reset = pygame.Rect(0, 0, 0, 0)
         self.btn_roll = pygame.Rect(0, 0, 0, 0)
         self.cell_rects = {}   # ← NEU, nach self.btn_roll
+        self.confirm_reroll = False
 
         # icons
         self.icon_exit = pygame.image.load("assets/exit_button.png").convert_alpha()
@@ -229,28 +230,23 @@ class Renderer:
             if player:
                 self.cell_rects[(id(player), row_color, "lock")] = lock_rect
 
-    def draw_player_name(self, name, char_x, base_y):
+    def draw_player_name(self, name, char_x, base_y, color=(220, 220, 220)):
         if len(name) <= 9:
-            txt = self.font_small.render(name, True, WHITE)
+            txt = self.font_small.render(name, True, color)
             self.screen.blit(txt, txt.get_rect(center=(char_x, base_y)))
             return txt.get_rect(center=(char_x, base_y))
         else:
             line1 = name[:9] + "-"
             line2 = name[9:]
             line_h = self.font_small.size("A")[1]
-            gap = 3  # ← kleiner Puffer zwischen den Zeilen
-
-            txt1 = self.font_small.render(line1, True, WHITE)
-            txt2 = self.font_small.render(line2, True, WHITE)
-
-            # Gesamthöhe = 2 Zeilen + gap, dann mittig auf base_y zentrieren
+            gap = 3
+            txt1 = self.font_small.render(line1, True, color)
+            txt2 = self.font_small.render(line2, True, color)
             total_h = line_h * 2 + gap
             y1 = base_y - total_h // 2 + line_h // 2
             y2 = y1 + line_h + gap
-
             self.screen.blit(txt1, txt1.get_rect(center=(char_x, y1)))
             self.screen.blit(txt2, txt2.get_rect(center=(char_x, y2)))
-
             return txt1.get_rect(center=(char_x, y1))
         
  #-----------------------------------------
@@ -258,31 +254,35 @@ class Renderer:
 
         if self.game.popup.active:
             return
+            
         width, height = self.screen.get_size()
         self.cell_rects = {}
 
-        scale = width / 1400
-        scale = max(0.75, min(scale, 1.2))
+        ui_scale = min(width / 1920, height / 1080)   # ← Basis jetzt 1920x1080
+        scale = ui_scale
+        scale = max(0.5, scale)
 
-        base_scale = min(width / 1400, height / 900)
-        base_scale = max(0.7, min(base_scale, 1.4))
+        base_scale = ui_scale
+        base_scale = max(0.5, base_scale)
+
+        self.font_logo           = pygame.font.Font("assets/caveat-bold.ttf", max(20, int(80  * ui_scale)))
+        self.font_logo_small     = pygame.font.Font("assets/caveat-bold.ttf", max(14, int(32  * ui_scale)))
+        self.font_wuerfel_button = pygame.font.Font("assets/caveat-bold.ttf", max(14, int(32  * ui_scale)))
+        self.font_wuerfel_zahl   = pygame.font.SysFont("arial", max(14, int(40 * ui_scale)), bold=True)
+        self.font_small          = pygame.font.Font("assets/caveat-bold.ttf", max(10, int(20 * ui_scale)))
 
         btn_size = int(36 * scale)
         btn_roll_w = int(180 * scale)
         btn_roll_h = int(45 * scale)
 
-        # QWIXX Titel (wie gehabt)
-        
+        # QWIXX Titel 
         txt_qwixx = self.font_logo.render("QWIXX", True, (220, 220, 220))
-        rect_qwixx = txt_qwixx.get_rect(center=(width - btn_size // 2 - 215, height - btn_size - 545))
+        rect_qwixx = txt_qwixx.get_rect(center=(width * 0.87, height * 0.45))
         self.screen.blit(txt_qwixx, rect_qwixx)
 
-        # ← NEU: "für Leni" darunter, kleinere Font
+        # LENI EDITION darunter
         txt = self.font_logo_small.render("Leni Edition", True, (220, 220, 220))
-        rect = txt.get_rect(center=(
-            width - btn_size // 2 - 215,   # gleiche X-Position wie QWIXX
-            height - btn_size - 495        # etwas tiefer (z.B. +45px)
-        ))
+        rect = txt.get_rect(center=(width * 0.87, height * 0.50))
         self.screen.blit(txt, rect)
 
         base_size = 65
@@ -299,40 +299,36 @@ class Renderer:
         left_x = int(w * 0.03)
         right_x = int(w * 0.80)
 
-        top = int(h * 0.15)
-        bottom = int(h * 0.60)
-        mid = int(h * 0.35)
+        top     = int(h * 0.10)
+        spacing = int(h * 0.30)   # ← 360px auf FHD ≈ h*0.33, passt sich an
 
-        positions = []
+        offset = int(h * 0.055)   # ← 50px auf FHD, skaliert auf allen Auflösungen
 
         if count == 2:
             positions = [
-                (left_x, mid - 100),
-                (left_x, mid + 300)
+                (left_x, int(h * 0.20) + offset),
+                (left_x, int(h * 0.55) + offset),
             ]
-
         elif count == 3:
             positions = [
-                (left_x, top + 10),    #1
-                (left_x, top + 360),   #2
-                (left_x, top + 700),   #3
+                (left_x, top + offset),
+                (left_x, top + spacing + offset),
+                (left_x, top + spacing * 2 + offset),
             ]
-
         elif count == 4:
             positions = [
-                (left_x, top + 10),    #1
-                (left_x, top + 360),   #2
-                (left_x, top + 700),   #3
-                (right_x, top + 10),   #4
+                (left_x, top + offset),
+                (left_x, top + spacing + offset),
+                (left_x, top + spacing * 2 + offset),
+                (right_x, top + offset),
             ]
-
         elif count == 5:
             positions = [
-                (left_x, top + 10),    #1
-                (left_x, top + 360),   #2
-                (left_x, top + 700),   #3
-                (right_x, top + 10),   #4
-                (right_x, top + 700),  #5
+                (left_x, top + offset),
+                (left_x, top + spacing + offset),
+                (left_x, top + spacing * 2 + offset),
+                (right_x, top + offset),
+                (right_x, top + spacing * 2 + offset),
             ]
 
         # =====================================================
@@ -372,23 +368,33 @@ class Renderer:
                 pygame.draw.circle(self.screen, player.color, (char_x, body_y - 10), body_r)
                 pygame.draw.circle(self.screen, player.color, (char_x, head_y - 10), head_r)
 
-                self.draw_player_name(player.name, char_x, y - int(58 * player_scale) - 15)
+                is_active = (player == self.game.current_player)
+                name_color = (255, 215, 0) if is_active else (220, 220, 220)
+
+                self.draw_player_name(player.name, char_x, y - int(58 * player_scale) - 15, color=name_color)
 
                 score_colors = [GRAY2, RED, YELLOW, GREEN, BLUE]
                 row_names    = [None, "red", "yellow", "green", "blue"]
-                start_x      = x + int(295 * player_scale)      # ← fix definiert
+                start_x      = x + int(245 * player_scale)    # ← DAS FEHLTE
 
                 for j, sc in enumerate(score_colors):
                     cx = start_x + j * int(44 * player_scale)
                     cy = y - int(72 * player_scale)
                     pygame.draw.circle(self.screen, sc, (cx, cy), score_r)
-                    if row_names[j] and player.board.locked[row_names[j]]:
-                        pts = player.board.get_score(row_names[j])
-                        pts_txt = self.font_small.render(str(pts), True, WHITE)
-                        self.screen.blit(pts_txt, pts_txt.get_rect(center=(cx, cy)))
 
-                self.draw_board(
-                    x + int(60 * base_scale),
+                    if j == 0:
+                        if player.board.penalties > 0:
+                            penalty_txt = f"-{player.board.penalties * 5}"
+                            pts_txt = self.font_small.render(penalty_txt, True, (120, 120, 120))
+                            self.screen.blit(pts_txt, pts_txt.get_rect(center=(cx, cy)))
+                    elif row_names[j]:
+                        if player.board.locked[row_names[j]]:
+                            pts = player.board.get_score(row_names[j])
+                            pts_txt = self.font_small.render(str(pts), True, WHITE)
+                            self.screen.blit(pts_txt, pts_txt.get_rect(center=(cx, cy)))
+                            
+                    self.draw_board(
+                    x + int(67 * base_scale),
                     y - int(45 * base_scale),
                     base_scale * 1.1,
                     player=player
@@ -406,26 +412,36 @@ class Renderer:
                 pygame.draw.circle(self.screen, player.color, (char_x, body_y - 10), body_r)
                 pygame.draw.circle(self.screen, player.color, (char_x, head_y - 10), head_r)
 
-                self.draw_player_name(player.name, char_x, y - int(75 * player_scale))
+                is_active = (player == self.game.current_player)
+                name_color = (255, 215, 0) if is_active else (220, 220, 220)
 
-                score_colors = [GRAY2, RED, YELLOW, GREEN, BLUE]
+                self.draw_player_name(player.name, char_x, y - int(75 * player_scale), color=name_color)
+
+                score_colors = [GRAY2, RED, YELLOW, GREEN, BLUE]   # ← NEU hier definiert
                 row_names    = [None, "red", "yellow", "green", "blue"]
-                start_x      = width - int(510 * player_scale)  # ← fix definiert
+                start_x      = x + int(-145 * player_scale)        # ← NEU wieder drin
 
                 for j, sc in enumerate(score_colors):
                     cx = start_x + j * int(44 * player_scale)
                     cy = y - int(72 * player_scale)
                     pygame.draw.circle(self.screen, sc, (cx, cy), score_r)
-                    if row_names[j] and player.board.locked[row_names[j]]:
-                        pts = player.board.get_score(row_names[j])
-                        pts_txt = self.font_small.render(str(pts), True, WHITE)
-                        self.screen.blit(pts_txt, pts_txt.get_rect(center=(cx, cy)))
 
-                board_scale   = base_scale * 1.1
-                right_margin  = int(width * 0.004)
-                board_width   = int(12 * (46 * board_scale + 5))
-                board_x       = width - right_margin - board_width - int(80 * player_scale)
-                board_y       = y - int(45 * player_scale)
+                    if j == 0:
+                        if player.board.penalties > 0:
+                            penalty_txt = f"-{player.board.penalties * 5}"
+                            pts_txt = self.font_small.render(penalty_txt, True, (120, 120, 120))
+                            self.screen.blit(pts_txt, pts_txt.get_rect(center=(cx, cy)))
+                    elif row_names[j]:
+                        if player.board.locked[row_names[j]]:
+                            pts = player.board.get_score(row_names[j])
+                            pts_txt = self.font_small.render(str(pts), True, WHITE)
+                            self.screen.blit(pts_txt, pts_txt.get_rect(center=(cx, cy)))
+
+                board_scale  = base_scale * 1.1
+                right_margin = int(width * 0.004)
+                board_width  = int(12 * (46 * board_scale + 5))
+                board_x      = width - right_margin - board_width - int(80 * player_scale)
+                board_y      = y - int(45 * player_scale)
 
                 self.draw_board(board_x, board_y, board_scale, player=player)
 
@@ -434,18 +450,16 @@ class Renderer:
         # BUTTONS
         # =====================================================
 
-        self.btn_exit = pygame.Rect(
-            width - btn_size - 10,
-            height - btn_size - 525,
-            btn_size,
-            btn_size
+        self.btn_exit  = pygame.Rect(
+            width - btn_size - int(width * 0.007), 
+            int(height * 0.480), 
+            btn_size, btn_size
         )
 
         self.btn_reset = pygame.Rect(
-            width - btn_size - 10,
-            height - btn_size - 570,
-            btn_size,
-            btn_size
+            width - btn_size - int(width * 0.007), 
+            int(height * 0.445), 
+            btn_size, btn_size
         )
         
         top_y = height // 2 - dice_size - 35
@@ -464,7 +478,34 @@ class Renderer:
         self.draw_icon_button(self.btn_exit, self.icon_exit, "exit")
         self.draw_icon_button(self.btn_reset, self.icon_reset, "reset")
 
-        self.draw_button(self.btn_roll, "WÜRFELN", "roll", font=self.font_wuerfel_button)
+        can_roll = (
+            self.game.rolls_this_turn < 2 and
+            not self.game.marked_this_turn
+        )
+
+        if not can_roll and not (self.game.marked_this_turn or self.game.rolls_this_turn >= 2):
+            # sollte nicht vorkommen
+            btn_label = "WÜRFELN"
+        elif self.game.rolls_this_turn == 0:
+            # noch gar nicht gewürfelt
+            btn_label = "WÜRFELN"
+            self.confirm_reroll = False
+            self.colors["roll"] = (85, 95, 90)
+        elif self.game.marked_this_turn or self.game.rolls_this_turn >= 2:
+            # Zug vorbei
+            btn_label = "WEITER ->"
+            self.confirm_reroll = False
+            self.colors["roll"] = (50, 50, 50)
+        elif self.confirm_reroll:
+            # Bestätigung abwarten
+            btn_label = "SICHER?"
+            self.colors["roll"] = (180, 130, 30)   # goldgelb
+        else:
+            # 1x gewürfelt, noch kein Kreuz → 2. Wurf anbieten
+            btn_label = "NOCHMAL?"
+            self.colors["roll"] = (70, 120, 160)   # blau
+
+        self.draw_button(self.btn_roll, btn_label, "roll", font=self.font_wuerfel_button)
 
         # =====================================================
         # WÜRFEL (FIXED SHIFT WIRKLICH BENUTZT)
@@ -517,16 +558,49 @@ class Renderer:
         if self.btn_reset.collidepoint(pos):
             self.game.popup.open("reset")
             return
-
         if self.btn_roll.collidepoint(pos):
-            self.game.roll_dice()
+            if self.game.popup.toast_active:
+                return
+
+            zug_vorbei = self.game.marked_this_turn or self.game.rolls_this_turn >= 2
+
+            if zug_vorbei:
+                self.confirm_reroll = False
+                self.game.next_turn()
+
+            elif self.game.rolls_this_turn == 0:
+                # Erster Wurf — direkt würfeln
+                self.confirm_reroll = False
+                self.game.roll_dice()
+
+            elif self.confirm_reroll:
+                # Bestätigt → 2. Wurf
+                self.confirm_reroll = False
+                self.game.roll_dice()
+
+            else:
+                # 1x gewürfelt → erst Bestätigung zeigen
+                self.confirm_reroll = True
+
             return
 
-        # ← NEU: Felder anklicken
         for (player_id, row_color, num), rect in self.cell_rects.items():
             if rect.collidepoint(pos):
                 for player in self.game.players:
                     if id(player) == player_id:
+
+                        if player != self.game.current_player:
+                            break
+
+                        if self.game.rolls_this_turn == 0:
+                            break
+
+                        if self.game.popup.toast_active:
+                            break
+
+                        # ← NEU: schon markiert → kein weiteres Kreuz
+                        if self.game.marked_this_turn:
+                            break
 
                         if num == "lock":
                             if len(player.board.marked[row_color]) >= 5 and not player.board.locked[row_color]:
@@ -534,6 +608,8 @@ class Renderer:
                         else:
                             if not player.board.locked[row_color]:
                                 if player.board.mark(row_color, num):
+                                    self.game.on_mark()
+                                    self.confirm_reroll = False
                                     last_field = {
                                         "red": 12, "yellow": 12,
                                         "green": 2, "blue": 2

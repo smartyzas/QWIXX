@@ -20,6 +20,7 @@ class Board:
             "green": False,
             "blue": False
         }
+        self.penalties = 0
 
     def can_mark(self, color, value):
         if self.locked[color]:
@@ -54,3 +55,7 @@ class Board:
             crosses += 1
         # Dreieckszahl: n*(n+1)/2
         return crosses * (crosses + 1) // 2
+
+    def get_total_score(self):
+        total = sum(self.get_score(color) for color in ["red", "yellow", "green", "blue"])
+        return total - (self.penalties * 5)

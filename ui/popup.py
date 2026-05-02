@@ -30,11 +30,23 @@ class Popup:
         self.active_input = 0
         self.input_rects = []
 
+        self.toast_active = False
+        self.toast_timer = 0
+        self.toast_text = ""
+        self.toast_color = (220, 220, 220)
+
     # ---------------- OPEN ----------------
     def open(self, mode="reset"):
-        print("POPUP OPEN:", mode)
-        self.active = True
         self.mode = mode
+
+        if mode == "turn_notify":              # ← kein self.active = True hier
+            self.toast_text = f"{self.game.current_player.name} ist dran!"
+            self.toast_color = self.game.current_player.color
+            self.toast_timer = pygame.time.get_ticks()
+            self.toast_active = True
+            return                             # ← sofort raus, kein Popup
+
+        self.active = True                     # ← nur für echte Popups
 
         if mode == "names":
             self.name_inputs = [""] * self.player_count
@@ -92,6 +104,10 @@ class Popup:
                 self.close()
                 return True
 
+        elif self.mode == "turn_notify":
+            self.close()
+            return True
+
         return False
 
     def handle_release(self):
@@ -129,6 +145,7 @@ class Popup:
             self.game.add_player(Player(name, color))
 
         print("🎮 Spiel gestartet mit", self.player_count, "Spielern")
+        self.game.start_game()   # ← NEU: zufälligen Startspieler wählen + Popup
 
     # ---------------- SLIDER ----------------
     def _update_slider(self, pos):
@@ -154,15 +171,47 @@ class Popup:
 
     # ---------------- DRAW ----------------
     def draw(self):
+        w, h = self.screen.get_size()
+
+        # ---- TOAST ZUERST — immer, auch wenn kein Popup aktiv ----
+        if self.toast_active:
+            now = pygame.time.get_ticks()
+            elapsed = now - self.toast_timer
+            duration = 1300
+
+            if elapsed > duration:
+                self.toast_active = False
+            else:
+                if elapsed < 300:
+                    alpha = int((elapsed / 300) * 220)
+                elif elapsed > duration - 400:
+                    alpha = int(((duration - elapsed) / 400) * 220)
+                else:
+                    alpha = 220
+
+                font = pygame.font.Font("assets/caveat-bold.ttf", max(24, int(42 * min(w/1920, h/1080))))
+                txt = font.render(self.toast_text, True, self.toast_color)
+                txt.set_alpha(alpha)
+
+                pad_x, pad_y = 30, 12
+                bg = pygame.Surface((txt.get_width() + pad_x*2, txt.get_height() + pad_y*2), pygame.SRCALPHA)
+                bg.fill((20, 20, 25, int(alpha * 0.8)))
+                pygame.draw.rect(bg, (*self.toast_color, int(alpha * 0.6)), bg.get_rect(), 2, border_radius=12)
+
+                bx = w//2 - bg.get_width()//2
+                by = int(h * 0.45)
+                self.screen.blit(bg, (bx, by))
+                self.screen.blit(txt, (bx + pad_x, by + pad_y))
+
+        # ---- AB HIER nur wenn Popup aktiv ----
         if not self.active:
             return
 
-        w, h = self.screen.get_size()
         self.update_buttons(w, h)
-
         overlay = pygame.Surface((w, h), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 170))
         self.screen.blit(overlay, (0, 0))
+        # ... rest bleibt gleich
 
         if self.mode == "names":
             input_area_h = self.player_count * 46  # Höhe aller Eingabefelder
@@ -235,6 +284,41 @@ class Popup:
             txt = self.font_small.render("START", True, WHITE)
             self.screen.blit(txt, txt.get_rect(center=self.btn_yes.center))
             return
+
+
+            # ---- TOAST ----
+        if self.toast_active:
+            now = pygame.time.get_ticks()
+            elapsed = now - self.toast_timer
+            duration = 2000  # 2 Sekunden
+
+            if elapsed > duration:
+                self.toast_active = False
+            else:
+                # Fade: rein in 300ms, raus in letzten 400ms
+                if elapsed < 300:
+                    alpha = int((elapsed / 300) * 220)
+                elif elapsed > duration - 400:
+                    alpha = int(((duration - elapsed) / 400) * 220)
+                else:
+                    alpha = 220
+
+                w, h = self.screen.get_size()
+                font = pygame.font.Font("assets/caveat-bold.ttf", max(24, int(42 * min(w/1920, h/1080))))
+
+                txt = font.render(self.toast_text, True, self.toast_color)
+                txt.set_alpha(alpha)
+
+                # weicher Hintergrund
+                pad_x, pad_y = 30, 12
+                bg = pygame.Surface((txt.get_width() + pad_x*2, txt.get_height() + pad_y*2), pygame.SRCALPHA)
+                bg.fill((20, 20, 25, int(alpha * 0.8)))
+                pygame.draw.rect(bg, (*self.toast_color, int(alpha * 0.6)), bg.get_rect(), 2, border_radius=12)
+
+                bx = w//2 - bg.get_width()//2
+                by = int(h * 0.08)
+                self.screen.blit(bg, (bx, by))
+                self.screen.blit(txt, (bx + pad_x, by + pad_y))
 
         # ---- RESET / EXIT ----
         if self.mode in ("reset", "exit"):

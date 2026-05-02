@@ -1,3 +1,4 @@
+import os
 import pygame
 import sys
 from ui.popup import Popup
@@ -64,7 +65,25 @@ while running:
         elif event.type == pygame.KEYDOWN:
 
             if game.popup.active:
-                game.popup.handle_keydown(event)   # ← NEU ganz oben
+                game.popup.handle_keydown(event)
+
+            elif event.key == pygame.K_m:
+                import ctypes
+                hwnd = pygame.display.get_wm_info()["window"]
+                ctypes.windll.user32.ShowWindow(hwnd, 9)  # 9 = RESTORE (normales Fenster)
+                screen = pygame.display.set_mode((1280, 720), pygame.RESIZABLE)
+                renderer.screen = screen
+                popup.screen = screen
+
+            elif event.key == pygame.K_f:
+                import ctypes
+                hwnd = pygame.display.get_wm_info()["window"]
+                ctypes.windll.user32.ShowWindow(hwnd, 9)   # erst restore
+                pygame.display.quit()
+                pygame.display.init()
+                screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF)
+                renderer.screen = screen
+                popup.screen = screen
 
             elif event.key == pygame.K_SPACE:
                 game.roll_dice()
