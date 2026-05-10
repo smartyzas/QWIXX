@@ -19,6 +19,7 @@ class Renderer:
         self.btn_exit = pygame.Rect(0, 0, 0, 0)
         self.btn_reset = pygame.Rect(0, 0, 0, 0)
         self.btn_roll = pygame.Rect(0, 0, 0, 0)
+        self.btn_roll = pygame.Rect(0, 0, 0, 0)
         self.cell_rects = {}   # ← NEU, nach self.btn_roll
         self.confirm_reroll = False
 
@@ -149,7 +150,7 @@ class Renderer:
 
         # ----------------------------
 
-    def draw_board(self, x, y, scale=1.0, player=None):
+    def draw_board(self, x, y, scale=1.0, player=None, allowed=None):
 
         row_h = int(38 * scale)
         cell_w = int(46 * scale)
@@ -162,8 +163,8 @@ class Renderer:
             (70, 110, 220)
         ]
         row_names = ["red", "yellow", "green", "blue"]
-        LOCKED_COLOR = (85, 95, 90)  # Grau für gesperrte Reihe
-        LOCK_READY   = (190, 160, 50)    # Gold wenn Schloss klickbar
+        LOCKED_COLOR = (85, 95, 90)
+        LOCK_READY   = (190, 160, 50)
 
         rows = [
             list(range(2, 13)),
@@ -187,9 +188,21 @@ class Renderer:
                     row_h
                 )
 
-                cell_color = LOCKED_COLOR if is_locked else colors[r]
+                if is_locked:
+                    cell_color = LOCKED_COLOR
+                else:
+                    cell_color = colors[r]
+
                 pygame.draw.rect(self.screen, cell_color, rect, border_radius=5)
-                pygame.draw.rect(self.screen, WHITE, rect, 1, border_radius=5)
+
+                if not is_locked and allowed is not None and (row_color, num) in allowed:
+                    glow = rect.inflate(4, 4)
+                    glow_surf = pygame.Surface((glow.width, glow.height), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_surf, (240, 235, 210, 80), (0, 0, glow.width, glow.height), border_radius=7)
+                    self.screen.blit(glow_surf, glow.topleft)
+                    pygame.draw.rect(self.screen, (240, 235, 210), rect, 2, border_radius=5)
+                else:
+                    pygame.draw.rect(self.screen, WHITE, rect, 1, border_radius=5)
 
                 if player and num in player.board.marked[row_color]:
                     x_txt = self.font_small.render("X", True, (255, 255, 255) if is_locked else BLACK)
@@ -202,7 +215,6 @@ class Renderer:
                 if player:
                     self.cell_rects[(id(player), row_color, num)] = rect
 
-            # Schloss Feld
             lock_rect = pygame.Rect(
                 x + 11 * (cell_w + gap) + 8,
                 row_y,
@@ -210,7 +222,6 @@ class Renderer:
                 row_h
             )
 
-            # Farbe: Gold=klickbar, Grau=gesperrt, Normal=inaktiv
             if is_locked:
                 lock_bg = LOCKED_COLOR
             elif can_lock:
@@ -226,10 +237,9 @@ class Renderer:
             lock_img = pygame.transform.smoothscale(self.icon_lock_field, (icon_size, icon_size))
             self.screen.blit(lock_img, lock_img.get_rect(center=lock_rect.center))
 
-            # Schloss Rect speichern für Klick
             if player:
                 self.cell_rects[(id(player), row_color, "lock")] = lock_rect
-
+                
     def draw_player_name(self, name, char_x, base_y, color=(220, 220, 220)):
         if len(name) <= 9:
             txt = self.font_small.render(name, True, color)
@@ -252,9 +262,9 @@ class Renderer:
  #-----------------------------------------
     def draw(self):
 
-        if self.game.popup.active:
+        if self.game.popup.active and self.game.popup.mode != "turn_notify":
             return
-            
+      
         width, height = self.screen.get_size()
         self.cell_rects = {}
 
@@ -348,14 +358,14 @@ class Renderer:
         self.font_small = pygame.font.SysFont("assets/caveat-bold.ttf", font_size, bold=True)
 
         for i, player in enumerate(self.game.players):
-
             if i >= len(positions):
                 continue
 
             x, y = positions[i]
-
             right_side = x > width / 2
 
+            # ← HIER, einmal pro Spieler
+            allowed = self.game.get_allowed_marks() if self.game.rolls_this_turn > 0 else None
             # =================================================
             # LINKS
             # =================================================
@@ -369,7 +379,17 @@ class Renderer:
                 pygame.draw.circle(self.screen, player.color, (char_x, head_y - 10), head_r)
 
                 is_active = (player == self.game.current_player)
-                name_color = (255, 215, 0) if is_active else (220, 220, 220)
+                is_passive_turn = (
+                    self.game.passive_phase and
+                    player == self.game.passive_current_player()
+                )
+
+                if is_active:
+                    name_color = (255, 215, 0)       # Gelb — würfelt gerade
+                elif is_passive_turn:
+                    name_color = (100, 220, 130)     # Grün — darf jetzt W+W ankreuzen
+                else:
+                    name_color = (220, 220, 220)     # Weiß — wartet
 
                 self.draw_player_name(player.name, char_x, y - int(58 * player_scale) - 15, color=name_color)
 
@@ -392,13 +412,15 @@ class Renderer:
                             pts = player.board.get_score(row_names[j])
                             pts_txt = self.font_small.render(str(pts), True, WHITE)
                             self.screen.blit(pts_txt, pts_txt.get_rect(center=(cx, cy)))
-                            
-                    self.draw_board(
+                                
+                self.draw_board(
                     x + int(67 * base_scale),
                     y - int(45 * base_scale),
                     base_scale * 1.1,
-                    player=player
+                    player=player,
+                    allowed=allowed
                 )
+
 
             # =================================================
             # RECHTS
@@ -413,7 +435,17 @@ class Renderer:
                 pygame.draw.circle(self.screen, player.color, (char_x, head_y - 10), head_r)
 
                 is_active = (player == self.game.current_player)
-                name_color = (255, 215, 0) if is_active else (220, 220, 220)
+                is_passive_turn = (
+                    self.game.passive_phase and
+                    player == self.game.passive_current_player()
+                )
+
+                if is_active:
+                    name_color = (255, 215, 0)       # Gelb — würfelt gerade
+                elif is_passive_turn:
+                    name_color = (100, 220, 130)     # Grün — darf jetzt W+W ankreuzen
+                else:
+                    name_color = (220, 220, 220)     # Weiß — wartet
 
                 self.draw_player_name(player.name, char_x, y - int(75 * player_scale), color=name_color)
 
@@ -443,7 +475,7 @@ class Renderer:
                 board_x      = width - right_margin - board_width - int(80 * player_scale)
                 board_y      = y - int(45 * player_scale)
 
-                self.draw_board(board_x, board_y, board_scale, player=player)
+                self.draw_board(board_x, board_y, board_scale, player=player, allowed=allowed)
 
 
         # =====================================================
@@ -549,6 +581,27 @@ class Renderer:
 
                 self.draw_dice(x, bottom_y, dice_size, value, colors[i + 2])
 
+                    # Passiver Timer-Balken
+            if self.game.passive_phase or self.game.active_player_phase:
+                elapsed = pygame.time.get_ticks() - self.game.passive_timer
+                progress = max(0.0, 1.0 - elapsed / self.game.PASSIVE_TIMEOUT)
+                bar_total = int(width * 0.3)
+                bar_w = int(bar_total * progress)
+                bar_x = width // 2 - bar_total // 2
+                bar_y = height - int(30 * scale)
+                pygame.draw.rect(self.screen, (60, 60, 60), pygame.Rect(bar_x, bar_y, bar_total, int(8 * scale)), border_radius=4)
+                if self.game.passive_phase:
+                    pygame.draw.rect(self.screen, (240, 235, 210), pygame.Rect(bar_x, bar_y, bar_w, int(8 * scale)), border_radius=4)
+
+                # WEITERGEBEN Button
+                pass_w = int(160 * scale)
+                pass_h = int(38 * scale)
+                self.btn_pass = pygame.Rect(bar_x + bar_total + 20, bar_y - 15, pass_w, pass_h)
+                self.colors["pass"] = (70, 100, 140)
+                self.draw_button(self.btn_pass, "WEITERGEBEN", "pass", font=self.font_wuerfel_button)
+            else:
+                self.btn_pass = pygame.Rect(0, 0, 0, 0)
+
     def handle_click(self, pos):
 
         if self.btn_exit.collidepoint(pos):
@@ -558,6 +611,15 @@ class Renderer:
         if self.btn_reset.collidepoint(pos):
             self.game.popup.open("reset")
             return
+        
+        if self.btn_pass.collidepoint(pos):
+            if self.game.passive_phase:
+                self.game.passive_next()
+            elif self.game.active_player_phase:
+                self.game.active_player_phase = False
+                self.game.popup.hide_toast()
+            return
+
         if self.btn_roll.collidepoint(pos):
             if self.game.popup.toast_active:
                 return
@@ -567,6 +629,7 @@ class Renderer:
             if zug_vorbei:
                 self.confirm_reroll = False
                 self.game.next_turn()
+                self.active_player_phase = False
 
             elif self.game.rolls_this_turn == 0:
                 # Erster Wurf — direkt würfeln
@@ -589,18 +652,33 @@ class Renderer:
                 for player in self.game.players:
                     if id(player) == player_id:
 
-                        if player != self.game.current_player:
-                            break
-
                         if self.game.rolls_this_turn == 0:
                             break
-
-                        if self.game.popup.toast_active:
+                        if self.game.popup.toast_active and not (self.game.passive_phase or self.game.active_player_phase):
                             break
 
-                        # ← NEU: schon markiert → kein weiteres Kreuz
-                        if self.game.marked_this_turn:
-                            break
+                        if player == self.game.current_player:
+                            # Aktiver Spieler: erst nach passiver Phase
+                            if self.game.passive_phase:
+                                break
+                            if not self.game.active_player_phase:
+                                break
+                            if self.game.marked_this_turn:
+                                break
+                            allowed = self.game.get_allowed_marks()
+                            if num != "lock" and (row_color, num) not in allowed:
+                                break
+                        else:
+                            # Passiver Spieler: nur wenn er gerade dran ist
+                            if not self.game.passive_phase:
+                                break
+                            if player != self.game.passive_current_player():
+                                break
+                            if getattr(player, 'marked_this_round', False):
+                                break
+                            passive_allowed = self.game.get_allowed_marks_passive()
+                            if num == "lock" or (row_color, num) not in passive_allowed:
+                                break
 
                         if num == "lock":
                             if len(player.board.marked[row_color]) >= 5 and not player.board.locked[row_color]:
@@ -608,12 +686,13 @@ class Renderer:
                         else:
                             if not player.board.locked[row_color]:
                                 if player.board.mark(row_color, num):
-                                    self.game.on_mark()
+                                    self.game.on_mark(player=player)
+                                    player.marked_this_round = True
                                     self.confirm_reroll = False
-                                    last_field = {
-                                        "red": 12, "yellow": 12,
-                                        "green": 2, "blue": 2
-                                    }
+                                    # Passiver geht automatisch weiter
+                                    if player != self.game.current_player:
+                                        self.game.passive_next()
+                                    last_field = {"red": 12, "yellow": 12, "green": 2, "blue": 2}
                                     if num == last_field[row_color]:
                                         player.board.lock_row(row_color)
                 return

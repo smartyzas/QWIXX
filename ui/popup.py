@@ -169,23 +169,48 @@ class Popup:
         self.btn_yes = pygame.Rect(px + 90, py + 220, 120, 50)
         self.btn_no = pygame.Rect(px + 290, py + 220, 120, 50)
 
+    def show_roll_toast(self, white_sum):
+        self.toast_text = f"Weiß+Weiß = {white_sum}  |  {self.game.current_player.name} ist dran!"
+        self.toast_color = (240, 235, 210)
+        self.toast_timer = pygame.time.get_ticks()
+        self.toast_active = True
+
+    def show_passive_toast(self, player_name, white_sum):
+        self.toast_text = f"{player_name}: Weiß+Weiß = {white_sum} ankreuzen?"
+        self.toast_subtext = "JA klicken oder 10 Sek. warten"
+        self.toast_timer = pygame.time.get_ticks()
+        self.toast_active = True
+        self.toast_timeout = 10000
+
+    def show_active_toast(self, player_name, white_sum):
+        self.toast_text = f"{player_name}: Jetzt du! W+W={white_sum} oder Farbe wählen"
+        self.toast_color = (255, 215, 0)   # Gelb wie Spielername
+        self.toast_timer = pygame.time.get_ticks()
+        self.toast_active = True
+
+    def hide_toast(self):
+        self.toast_active = False
+        self.toast_text = ""
+
     # ---------------- DRAW ----------------
     def draw(self):
         w, h = self.screen.get_size()
 
-        # ---- TOAST ZUERST — immer, auch wenn kein Popup aktiv ----
+                # ---- TOAST ZUERST — immer, auch wenn kein Popup aktiv ----
         if self.toast_active:
             now = pygame.time.get_ticks()
             elapsed = now - self.toast_timer
-            duration = 1300
+
+            # turn_notify: 1500ms dann weg
+            # passive/active toast: dauerhaft bis hide_toast()
+            is_permanent = self.game.passive_phase or self.game.active_player_phase
+            duration = 99999999 if is_permanent else 1500
 
             if elapsed > duration:
                 self.toast_active = False
             else:
                 if elapsed < 300:
                     alpha = int((elapsed / 300) * 220)
-                elif elapsed > duration - 400:
-                    alpha = int(((duration - elapsed) / 400) * 220)
                 else:
                     alpha = 220
 
@@ -199,10 +224,9 @@ class Popup:
                 pygame.draw.rect(bg, (*self.toast_color, int(alpha * 0.6)), bg.get_rect(), 2, border_radius=12)
 
                 bx = w//2 - bg.get_width()//2
-                by = int(h * 0.45)
+                by = int(h * 0.08)
                 self.screen.blit(bg, (bx, by))
                 self.screen.blit(txt, (bx + pad_x, by + pad_y))
-
         # ---- AB HIER nur wenn Popup aktiv ----
         if not self.active:
             return

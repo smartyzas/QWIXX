@@ -86,7 +86,7 @@ while running:
                 popup.screen = screen
 
             elif event.key == pygame.K_SPACE:
-                game.roll_dice()
+                game.roll_dice()    
 
             elif event.key == pygame.K_ESCAPE:
                 game.popup.open("exit")
@@ -103,6 +103,8 @@ while running:
 
             renderer.screen = screen
             popup.screen = screen
+
+        game.update()
 
     # ---------------- DRAW ----------------
     game.update()
