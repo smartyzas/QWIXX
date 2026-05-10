@@ -18,6 +18,8 @@ class Game:
         self.penalty_this_turn = 0
         self.fullscreen = False
         self.request_exit = False
+        self.roll_1 = None
+        self.roll_2 = None
 
         self.passive_queue = []
         self.passive_index = 0
@@ -51,15 +53,19 @@ class Game:
         }
         self.roll = {"values": values}
         self.rolls_this_turn += 1
-        self.active_player_phase = False
+        self.active_player_phase = True
+
+        if self.rolls_this_turn == 1:
+            self.roll_1 = values
+        elif self.rolls_this_turn == 2:
+            self.roll_2 = values
 
         if len(self.players) > 1:
             self.start_passive_phase()
         else:
-            self.active_player_phase = True
             white_sum = values["white1"] + values["white2"]
             self.popup.show_roll_toast(white_sum)
-
+                
     def start_passive_phase(self):
         others = [p for p in self.players if p != self.current_player]
         random.shuffle(others)
@@ -80,8 +86,8 @@ class Game:
         self.passive_timer = pygame.time.get_ticks()
         if self.passive_index >= len(self.passive_queue):
             self.passive_phase = False
-            self.popup.hide_toast()
-            self._notify_active_player()
+            self.active_player_phase = True
+            self.popup.show_wuerfler_toast(self.current_player.name)
         else:
             self._notify_passive_current()
 
@@ -140,6 +146,8 @@ class Game:
     def next_turn(self):
         if self.rolls_this_turn > 0 and not self.marked_this_turn:
             self.current_player.board.penalties += 1
+            self.roll_1 = None
+            self.roll_2 = None
 
         self.current_player_index = (self.current_player_index + 1) % len(self.players)
         self.rolls_this_turn = 0
@@ -169,11 +177,11 @@ class Game:
         return allowed
 
     def get_allowed_marks_passive(self):
-        if not self.roll or not self.roll.get("values"):
-            return set()
-        v = self.roll["values"]
-        white_sum = v["white1"] + v["white2"]
         allowed = set()
-        for color in ["red", "yellow", "green", "blue"]:
-            allowed.add((color, white_sum))
+        for roll_values in [self.roll_1, self.roll_2]:
+            if not roll_values:
+                continue
+            white_sum = roll_values["white1"] + roll_values["white2"]
+            for color in ["red", "yellow", "green", "blue"]:
+                allowed.add((color, white_sum))
         return allowed

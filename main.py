@@ -30,6 +30,9 @@ game.popup = popup   # 🔥 WICHTIG
 popup.open("start")   # 🔥 START POPUP AUTO
 
 renderer = Renderer(screen, game)
+import inspect
+print(inspect.getsourcefile(renderer.handle_click))
+print(inspect.getsource(renderer.handle_click)[:200])
 
 print("🧠 Game + Renderer erstellt")
 
@@ -48,11 +51,9 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-
-            if game.popup.active:
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if game.popup.active and game.popup.mode != "turn_notify":
                 game.popup.handle_click(event.pos)
-
             else:
                 renderer.handle_click(event.pos)
 

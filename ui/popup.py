@@ -21,9 +21,6 @@ class Popup:
         self.slider_rect = pygame.Rect(0, 0, 0, 0)
         self.slider_knob = pygame.Rect(0, 0, 0, 0)
 
-        self.font_3d = pygame.font.Font("assets/caveat-bold.ttf", 28)
-        self.font_3d_small = pygame.font.Font("assets/caveat-bold.ttf", 20)
-
         self.player_count = 2
         self.dragging_slider = False
         self.name_inputs = []
@@ -34,12 +31,15 @@ class Popup:
         self.toast_timer = 0
         self.toast_text = ""
         self.toast_color = (220, 220, 220)
+        self.toast_subtext = ""
+        self.toast_subtext2 = ""
 
     # ---------------- OPEN ----------------
     def open(self, mode="reset"):
         self.mode = mode
 
         if mode == "turn_notify":              # ← kein self.active = True hier
+            self.active = False  
             self.toast_text = f"{self.game.current_player.name} ist dran!"
             self.toast_color = self.game.current_player.color
             self.toast_timer = pygame.time.get_ticks()
@@ -59,6 +59,11 @@ class Popup:
     def handle_click(self, pos):
         if not self.active:
             return False
+
+        # TURN NOTIFY — Klick schließt es und geht weiter
+        if self.mode == "turn_notify":
+            self.close()
+            return False   # False = Renderer darf den Klick auch verarbeiten
 
         # SLIDER / START
         if self.mode == "start":
@@ -103,10 +108,6 @@ class Popup:
             elif self.btn_no.collidepoint(pos):
                 self.close()
                 return True
-
-        elif self.mode == "turn_notify":
-            self.close()
-            return True
 
         return False
 
@@ -170,23 +171,28 @@ class Popup:
         self.btn_no = pygame.Rect(px + 290, py + 220, 120, 50)
 
     def show_roll_toast(self, white_sum):
-        self.toast_text = f"Weiß+Weiß = {white_sum}  |  {self.game.current_player.name} ist dran!"
-        self.toast_color = (240, 235, 210)
-        self.toast_timer = pygame.time.get_ticks()
-        self.toast_active = True
+        self.toast_text     = f"{self.game.current_player.name} ist dran!"
+        self.toast_subtext  = ""   # ← wichtig!
+        self.toast_subtext2 = ""   # ← wichtig!
+        self.toast_color    = (240, 235, 210)
+        self.toast_timer    = pygame.time.get_ticks()
+        self.toast_active   = True
 
     def show_passive_toast(self, player_name, white_sum):
-        self.toast_text = f"{player_name}: Weiß+Weiß = {white_sum} ankreuzen?"
-        self.toast_subtext = "JA klicken oder 10 Sek. warten"
-        self.toast_timer = pygame.time.get_ticks()
-        self.toast_active = True
-        self.toast_timeout = 10000
+        self.toast_text    = f"{player_name}:"
+        self.toast_subtext = f"Weiße Summe ({white_sum}) ankreuzen?"
+        self.toast_subtext2 = ""   # ← wichtig!
+        self.toast_color   = (100, 220, 130)
+        self.toast_timer   = pygame.time.get_ticks()
+        self.toast_active  = True
 
-    def show_active_toast(self, player_name, white_sum):
-        self.toast_text = f"{player_name}: Jetzt du! W+W={white_sum} oder Farbe wählen"
-        self.toast_color = (255, 215, 0)   # Gelb wie Spielername
-        self.toast_timer = pygame.time.get_ticks()
-        self.toast_active = True
+    def show_wuerfler_toast(self, player_name):
+        self.toast_text     = f"Der Würfler ({player_name}) ist dran!"
+        self.toast_subtext  = ""
+        self.toast_subtext2 = ""
+        self.toast_color    = self.game.current_player.color
+        self.toast_timer    = pygame.time.get_ticks()
+        self.toast_active   = True
 
     def hide_toast(self):
         self.toast_active = False
@@ -201,32 +207,43 @@ class Popup:
             now = pygame.time.get_ticks()
             elapsed = now - self.toast_timer
 
-            # turn_notify: 1500ms dann weg
-            # passive/active toast: dauerhaft bis hide_toast()
-            is_permanent = self.game.passive_phase or self.game.active_player_phase
+            is_permanent = self.game.rolls_this_turn > 0 and not self.game.marked_this_turn
             duration = 99999999 if is_permanent else 1500
 
             if elapsed > duration:
                 self.toast_active = False
             else:
-                if elapsed < 300:
-                    alpha = int((elapsed / 300) * 220)
-                else:
-                    alpha = 220
+                alpha = int((elapsed / 300) * 220) if elapsed < 300 else 220
 
-                font = pygame.font.Font("assets/caveat-bold.ttf", max(24, int(42 * min(w/1920, h/1080))))
-                txt = font.render(self.toast_text, True, self.toast_color)
-                txt.set_alpha(alpha)
+                font      = pygame.font.Font("assets/caveat-bold.ttf", max(24, int(42 * min(w/1920, h/1080))))
+                font_sub  = pygame.font.Font("assets/caveat-bold.ttf", max(20, int(36 * min(w/1920, h/1080))))
+                font_sub2 = pygame.font.Font("assets/caveat-bold.ttf", max(18, int(30 * min(w/1920, h/1080))))
+
+                line1 = font.render(self.toast_text, True, self.toast_color)
+                sub1  = getattr(self, "toast_subtext",  "")
+                sub2  = getattr(self, "toast_subtext2", "")
+                line2 = font_sub.render(sub1,  True, self.toast_color) if sub1 else None
+                line3 = font_sub2.render(sub2, True, self.toast_color) if sub2 else None
+
+                all_lines = [l for l in [line1, line2, line3] if l]
+                total_w = max(l.get_width() for l in all_lines)
+                total_h = sum(l.get_height() for l in all_lines) + (len(all_lines) - 1) * 4
 
                 pad_x, pad_y = 30, 12
-                bg = pygame.Surface((txt.get_width() + pad_x*2, txt.get_height() + pad_y*2), pygame.SRCALPHA)
+                bg = pygame.Surface((total_w + pad_x*2, total_h + pad_y*2), pygame.SRCALPHA)
                 bg.fill((20, 20, 25, int(alpha * 0.8)))
                 pygame.draw.rect(bg, (*self.toast_color, int(alpha * 0.6)), bg.get_rect(), 2, border_radius=12)
 
                 bx = w//2 - bg.get_width()//2
                 by = int(h * 0.08)
                 self.screen.blit(bg, (bx, by))
-                self.screen.blit(txt, (bx + pad_x, by + pad_y))
+
+                y_cursor = by + pad_y
+                for line in all_lines:
+                    line.set_alpha(alpha)
+                    self.screen.blit(line, line.get_rect(centerx=w//2, top=y_cursor))
+                    y_cursor += line.get_height() + 4
+                    
         # ---- AB HIER nur wenn Popup aktiv ----
         if not self.active:
             return
@@ -308,41 +325,6 @@ class Popup:
             txt = self.font_small.render("START", True, WHITE)
             self.screen.blit(txt, txt.get_rect(center=self.btn_yes.center))
             return
-
-
-            # ---- TOAST ----
-        if self.toast_active:
-            now = pygame.time.get_ticks()
-            elapsed = now - self.toast_timer
-            duration = 2000  # 2 Sekunden
-
-            if elapsed > duration:
-                self.toast_active = False
-            else:
-                # Fade: rein in 300ms, raus in letzten 400ms
-                if elapsed < 300:
-                    alpha = int((elapsed / 300) * 220)
-                elif elapsed > duration - 400:
-                    alpha = int(((duration - elapsed) / 400) * 220)
-                else:
-                    alpha = 220
-
-                w, h = self.screen.get_size()
-                font = pygame.font.Font("assets/caveat-bold.ttf", max(24, int(42 * min(w/1920, h/1080))))
-
-                txt = font.render(self.toast_text, True, self.toast_color)
-                txt.set_alpha(alpha)
-
-                # weicher Hintergrund
-                pad_x, pad_y = 30, 12
-                bg = pygame.Surface((txt.get_width() + pad_x*2, txt.get_height() + pad_y*2), pygame.SRCALPHA)
-                bg.fill((20, 20, 25, int(alpha * 0.8)))
-                pygame.draw.rect(bg, (*self.toast_color, int(alpha * 0.6)), bg.get_rect(), 2, border_radius=12)
-
-                bx = w//2 - bg.get_width()//2
-                by = int(h * 0.08)
-                self.screen.blit(bg, (bx, by))
-                self.screen.blit(txt, (bx + pad_x, by + pad_y))
 
         # ---- RESET / EXIT ----
         if self.mode in ("reset", "exit"):
