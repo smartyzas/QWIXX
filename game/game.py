@@ -25,19 +25,40 @@ class Game:
         self.passive_index = 0
         self.passive_phase = False
         self.passive_timer = 0
-        self.PASSIVE_TIMEOUT = 20000
+        self.PASSIVE_TIMEOUT = 15000
+        self.ACTIVE_TIMEOUT  = 20000
         self.active_player_phase = False
+        self.active_timer_running = False
+        self.active_timer         = 0
+        self._auto_next_timer = None
+
 
     def add_player(self, player):
         self.players.append(player)
 
     def update(self):
         if self.passive_phase:
-            elapsed = pygame.time.get_ticks() - self.passive_timer
-            if elapsed >= self.PASSIVE_TIMEOUT:
+            if pygame.time.get_ticks() - self.passive_timer >= self.PASSIVE_TIMEOUT:
                 self.passive_next()
 
+        if self.active_timer_running:
+            if pygame.time.get_ticks() - self.active_timer >= self.ACTIVE_TIMEOUT:
+                self.active_timer_running = False
+                self.active_player_phase  = False
+                self.next_turn()
+
+        # NEU: Zug automatisch beenden nach 2s wenn marked oder 2x gewürfelt
+        if (self.marked_this_turn or self.rolls_this_turn >= 2) and not self.passive_phase and not self.active_timer_running:
+            if self._auto_next_timer is None:
+                self._auto_next_timer = pygame.time.get_ticks()
+            elif pygame.time.get_ticks() - self._auto_next_timer >= 1000:  # 1 Sekunde
+                self._auto_next_timer = None
+                self.next_turn()
+        else:
+            self._auto_next_timer = None
+
     def roll_dice(self):
+        self.active_timer_running = False
         if self.rolls_this_turn >= 2:
             return
         if self.marked_this_turn and self.rolls_this_turn >= 1:
@@ -55,6 +76,8 @@ class Game:
         self.rolls_this_turn += 1
         self.active_player_phase = True
 
+        self.start_passive_phase()
+
         if self.rolls_this_turn == 1:
             self.roll_1 = values
         elif self.rolls_this_turn == 2:
@@ -67,8 +90,24 @@ class Game:
             self.popup.show_roll_toast(white_sum)
                 
     def start_passive_phase(self):
-        others = [p for p in self.players if p != self.current_player]
-        random.shuffle(others)
+        if self.rolls_this_turn == 1:
+            # 1. Wurf: alle anderen Spieler
+            others = [p for p in self.players if p != self.current_player]
+        else:
+            # 2. Wurf: nur die die beim 1. Wurf NICHT angekreuzt haben
+            others = [p for p in self.players
+                    if p != self.current_player
+                    and not getattr(p, 'marked_this_round', False)]
+
+        if not others:
+            # Alle haben schon angekreuzt → Würfler direkt dran
+            self.passive_phase        = False
+            self.active_player_phase  = True
+            self.active_timer_running = True
+            self.active_timer         = pygame.time.get_ticks()
+            self.popup.show_wuerfler_toast(self.current_player.name)
+            return
+
         self.passive_queue = others
         self.passive_index = 0
         self.passive_phase = True
@@ -85,8 +124,10 @@ class Game:
         self.passive_index += 1
         self.passive_timer = pygame.time.get_ticks()
         if self.passive_index >= len(self.passive_queue):
-            self.passive_phase = False
-            self.active_player_phase = True
+            self.passive_phase        = False
+            self.active_player_phase  = True
+            self.active_timer_running = True
+            self.active_timer         = pygame.time.get_ticks()
             self.popup.show_wuerfler_toast(self.current_player.name)
         else:
             self._notify_passive_current()
@@ -138,12 +179,13 @@ class Game:
         if not self.players:
             return None
         return self.players[self.current_player_index]
-
     def on_mark(self, player=None):
         if player is None or player == self.current_player:
             self.marked_this_turn = True
 
     def next_turn(self):
+        for p in self.players:
+            p.marked_this_round = False
         if self.rolls_this_turn > 0 and not self.marked_this_turn:
             self.current_player.board.penalties += 1
             self.roll_1 = None
@@ -157,6 +199,8 @@ class Game:
         self.passive_queue = []
         self.passive_index = 0
         self.active_player_phase = False
+        self.active_timer_running = False   # ← NEU
+        self.active_timer         = 0
 
         for p in self.players:
             p.marked_this_round = False

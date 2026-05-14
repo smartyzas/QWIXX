@@ -51,10 +51,8 @@ while running:
         if event.type == pygame.QUIT:
             running = False
 
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if game.popup.active and game.popup.mode != "turn_notify":
-                game.popup.handle_click(event.pos)
-            else:
+        elif event.type == pygame.MOUSEBUTTONDOWN:
+            if not popup.handle_click(event.pos):
                 renderer.handle_click(event.pos)
 
         elif event.type == pygame.MOUSEBUTTONUP:
@@ -64,14 +62,15 @@ while running:
             game.popup.handle_motion(event.pos)
 
         elif event.type == pygame.KEYDOWN:
+            game.popup.handle_keydown(event)
 
-            if game.popup.active:
-                game.popup.handle_keydown(event)
+            if event.key == pygame.K_SPACE:
+                renderer.handle_click(pygame.mouse.get_pos())  # ← nur einmal
 
             elif event.key == pygame.K_m:
                 import ctypes
                 hwnd = pygame.display.get_wm_info()["window"]
-                ctypes.windll.user32.ShowWindow(hwnd, 9)  # 9 = RESTORE (normales Fenster)
+                ctypes.windll.user32.ShowWindow(hwnd, 9)
                 screen = pygame.display.set_mode((1280, 720), pygame.RESIZABLE)
                 renderer.screen = screen
                 popup.screen = screen
@@ -79,15 +78,12 @@ while running:
             elif event.key == pygame.K_f:
                 import ctypes
                 hwnd = pygame.display.get_wm_info()["window"]
-                ctypes.windll.user32.ShowWindow(hwnd, 9)   # erst restore
+                ctypes.windll.user32.ShowWindow(hwnd, 9)
                 pygame.display.quit()
                 pygame.display.init()
                 screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.HWSURFACE | pygame.DOUBLEBUF)
                 renderer.screen = screen
                 popup.screen = screen
-
-            elif event.key == pygame.K_SPACE:
-                game.roll_dice()    
 
             elif event.key == pygame.K_ESCAPE:
                 game.popup.open("exit")
@@ -96,18 +92,11 @@ while running:
                 game.popup.open("reset")
 
         elif event.type == pygame.VIDEORESIZE and not game.fullscreen:
-
-            screen = pygame.display.set_mode(
-                (event.w, event.h),
-                pygame.RESIZABLE
-            )
-
+            screen = pygame.display.set_mode((event.w, event.h), pygame.RESIZABLE)
             renderer.screen = screen
             popup.screen = screen
 
-        game.update()
-
-    # ---------------- DRAW ----------------
+    # ← NUR EINMAL pro Frame, außerhalb des Event-Loops
     game.update()
     renderer.draw()
     game.popup.draw()

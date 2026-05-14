@@ -187,12 +187,10 @@ class Popup:
         self.toast_active  = True
 
     def show_wuerfler_toast(self, player_name):
-        self.toast_text     = f"Der Würfler ({player_name}) ist dran!"
-        self.toast_subtext  = ""
-        self.toast_subtext2 = ""
-        self.toast_color    = self.game.current_player.color
-        self.toast_timer    = pygame.time.get_ticks()
-        self.toast_active   = True
+        self.toast_text = f"Der Würfler ({player_name}) ist dran!"
+        self.toast_color = (255, 215, 0)   # Gelb
+        self.toast_timer = pygame.time.get_ticks()
+        self.toast_active = True
 
     def hide_toast(self):
         self.toast_active = False
@@ -207,8 +205,8 @@ class Popup:
             now = pygame.time.get_ticks()
             elapsed = now - self.toast_timer
 
-            is_permanent = self.game.rolls_this_turn > 0 and not self.game.marked_this_turn
-            duration = 99999999 if is_permanent else 1500
+            is_permanent = self.game.passive_phase
+            duration = 99999999 if is_permanent else 3000
 
             if elapsed > duration:
                 self.toast_active = False
@@ -235,7 +233,7 @@ class Popup:
                 pygame.draw.rect(bg, (*self.toast_color, int(alpha * 0.6)), bg.get_rect(), 2, border_radius=12)
 
                 bx = w//2 - bg.get_width()//2
-                by = int(h * 0.08)
+                by = int(h * 0.07)
                 self.screen.blit(bg, (bx, by))
 
                 y_cursor = by + pad_y
