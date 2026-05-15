@@ -34,8 +34,12 @@ class Renderer:
             "roll":  (85, 95, 90),
             "next":  (60, 110, 170),   # ← NEU
         }
-        self.btn_next = pygame.Rect(0, 0, 0, 0)   # ← NEU
-        
+        self.btn_next = pygame.Rect(-1, -1, 0, 0)   # ← NEU
+        self._pending_action = None     # lambda to call after delay
+        self._pending_timer  = 0        # pygame.time.get_ticks() snapshot
+        self._btn_pressed    = None     # "roll" | "next" — for visual pressed state
+        self._DELAY_MS       = 500      # 0.5 s
+                
         pygame.display.set_caption("QWIXX")
 
         # 🔥 HIER EINBAUEN
@@ -62,6 +66,12 @@ class Renderer:
 
     # ----------------------------
     def draw_button(self, rect, text, key, font=None):
+        pressed = (self._btn_pressed == key)
+
+        # Shift everything 2px down/right and darken color while pressed
+        if pressed:
+            rect = rect.move(2, 2)
+
         color = self.colors.get(key, (100, 100, 100))
 
         shadow = rect.move(2, 2)
@@ -316,6 +326,38 @@ class Renderer:
             self.screen.blit(txt2, txt2.get_rect(center=(char_x, y2)))
             return txt1.get_rect(center=(char_x, y1))
         
+
+    def _resolve_roll_action(self):
+        """Return the correct lambda for btn_roll, or None if no action applies."""
+        if self.game.rolls_this_turn == 0:
+            return lambda: self.game.roll_dice()
+
+        if self.game.passive_phase:
+            return lambda: self.game.passive_next()
+
+        if self.game.active_player_phase:
+            def _next():
+                self.game.active_timer_running = False
+                self.game.active_player_phase  = False
+                self.game.popup.hide_toast()
+                self.game.next_turn()
+            return _next
+
+        return None
+
+    def _do_reroll(self):
+        self.game.active_timer_running = False
+        self.game.active_player_phase  = False
+        self.game.roll_dice()
+
+    def update(self):
+        """Call this every frame from your main loop BEFORE draw()."""
+        if self._pending_action and pygame.time.get_ticks() - self._pending_timer >= self._DELAY_MS:
+            action = self._pending_action
+            self._pending_action = None
+            self._btn_pressed    = None
+            action()
+        
  #-----------------------------------------
     def draw(self):
 
@@ -542,83 +584,91 @@ class Renderer:
         # =====================================================
 
         self.btn_exit  = pygame.Rect(
-            width - btn_size - int(width * 0.007), 
-            int(height * 0.480), 
-            btn_size, btn_size
+                    width - btn_size - int(width * 0.007),
+                    int(height * 0.480),
+                    btn_size, btn_size
         )
-
         self.btn_reset = pygame.Rect(
-            width - btn_size - int(width * 0.007), 
-            int(height * 0.445), 
+            width - btn_size - int(width * 0.007),
+            int(height * 0.445),
             btn_size, btn_size
         )
-        
-        top_y = height // 2 - dice_size - 35
-        bottom_y = height // 2 + 10
-        dice_bottom = bottom_y + dice_size
 
-        shift_x = int(width * 0.21)  # 10% nach rechts
+        # Würfelreihe-Maße (identisch mit Dice-Block)
+        gap            = max(15, dice_size // 6)
+        bottom_total   = 4 * dice_size + 3 * gap
+        shift_right    = int(width * 0.21)
+        dice_left_x    = ((width - bottom_total) // 2) + shift_right
+        dice_right_x   = dice_left_x + bottom_total
+        bottom_y       = height // 2 - 5
+        dice_bottom    = bottom_y + dice_size
 
-        self.btn_roll = pygame.Rect(
-            width // 2 - btn_roll_w // 2 + shift_x,
-            dice_bottom + int(2 * scale),
-            btn_roll_w,
-            btn_roll_h
-        )
+        btn_y          = dice_bottom + int(8 * scale)
+        btn_h          = int(45 * scale)
+        outer_padding  = int(18 * scale)   # Buttons ragen etwas über Würfelkanten hinaus
+        btn_gap        = int(6  * scale)   # Abstand zwischen den zwei Buttons
 
-        self.draw_icon_button(self.btn_exit, self.icon_exit, "exit")
+        # Äußere Grenzen mit Padding
+        total_left     = dice_left_x  - outer_padding
+        total_right    = dice_right_x + outer_padding
+        total_w        = total_right - total_left
+
+        self.draw_icon_button(self.btn_exit,  self.icon_exit,  "exit")
         self.draw_icon_button(self.btn_reset, self.icon_reset, "reset")
 
-        can_roll = (
-            self.game.rolls_this_turn < 2 and
-            not self.game.marked_this_turn
+        font_small_btn = pygame.font.Font(
+            "assets/caveat-bold.ttf", max(12, int(26 * scale))
         )
 
+        # ── Label-Logik & Positionierung ──
         if self.game.rolls_this_turn == 0:
             btn_label = "WÜRFELN"
-            self.confirm_reroll = False
             self.colors["roll"] = (85, 95, 90)
-            self.btn_next = pygame.Rect(0, 0, 0, 0)
-
-        elif self.game.marked_this_turn or self.game.rolls_this_turn >= 2:
-            btn_label = "WEITER ->"
-            self.confirm_reroll = False
-            self.colors["roll"] = (60, 110, 170)
-            self.btn_next = pygame.Rect(0, 0, 0, 0)
+            self.btn_next = pygame.Rect(-1, -1, 0, 0)
+            # Einzelner Button: zentriert
+            btn_roll_w = total_w
+            self.btn_roll = pygame.Rect(total_left, btn_y, btn_roll_w, btn_h)
 
         elif self.game.passive_phase:
             btn_label = "WEITER ->"
             self.colors["roll"] = (70, 100, 140)
-            self.btn_next = pygame.Rect(0, 0, 0, 0)
+            self.btn_next = pygame.Rect(-1, -1, 0, 0)
+            btn_roll_w = total_w
+            self.btn_roll = pygame.Rect(total_left, btn_y, btn_roll_w, btn_h)
 
-        elif self.game.active_timer_running:
-            if self.confirm_reroll:
-                btn_label = "SICHER?"
-                self.colors["roll"] = (180, 130, 30)
+        elif self.game.active_player_phase:
+
+            if self.game.marked_this_turn or self.game.rolls_this_turn >= 2:
+                # Einzelner WEITER-Button: zentriert
+                btn_label = "WEITER ->"
+                self.colors["roll"] = (60, 110, 170)
+                self.btn_next = pygame.Rect(-1, -1, 0, 0)
+                btn_roll_w = total_w
+                self.btn_roll = pygame.Rect(total_left, btn_y, btn_roll_w, btn_h)
+
             else:
-                btn_label = "NOCHMAL?"
-                self.colors["roll"] = (70, 120, 160)
-            # Zweiter Button WEITER ->
-            btn_next_w = int(160 * scale)
-            btn_next_h = int(45  * scale)
-            self.btn_next = pygame.Rect(
-                self.btn_roll.right + int(10 * scale),
-                self.btn_roll.y,
-                btn_next_w,
-                btn_next_h
-            )
-            self.colors["next"] = (60, 110, 170)
-            self.draw_button(self.btn_next, "WEITER ->", "next", font=self.font_wuerfel_button)
+                # Beide Buttons: WEITER links (groß) + NOCHMAL? rechts (klein)
+                btn_next_w = int(total_w * 0.40)          # 30% für NOCHMAL?
+                btn_roll_w = total_w - btn_next_w - btn_gap  # Rest für WEITER
 
-        elif self.confirm_reroll:
-            btn_label = "SICHER?"
-            self.colors["roll"] = (180, 130, 30)
-            self.btn_next = pygame.Rect(0, 0, 0, 0)
+                self.btn_roll = pygame.Rect(total_left, btn_y, btn_roll_w, btn_h)
+                self.btn_next = pygame.Rect(
+                    total_left + btn_roll_w + btn_gap,
+                    btn_y,
+                    btn_next_w,
+                    btn_h
+                )
+                btn_label = "WEITER ->"
+                self.colors["roll"] = (60, 110, 170)
+                self.colors["next"] = (70, 120, 160)
+                self.draw_button(self.btn_next, "NOCHMAL?", "next", font=font_small_btn)
 
         else:
-            btn_label = "NOCHMAL?"
-            self.colors["roll"] = (70, 120, 160)
-            self.btn_next = pygame.Rect(0, 0, 0, 0)
+            btn_label = "..."
+            self.colors["roll"] = (60, 60, 60)
+            self.btn_next = pygame.Rect(-1, -1, 0, 0)
+            btn_roll_w = total_w
+            self.btn_roll = pygame.Rect(total_left, btn_y, btn_roll_w, btn_h)
 
         self.draw_button(self.btn_roll, btn_label, "roll", font=self.font_wuerfel_button)
 
@@ -698,14 +748,59 @@ class Renderer:
 
         self.btn_pass = pygame.Rect(0, 0, 0, 0)  # nie mehr gebraucht
 
-        if player:
-            is_active       = (player == self.game.current_player)
-            is_passive_turn = (self.game.passive_phase and
-                            player == self.game.passive_current_player())
 
+    def _handle_cell_click(self, player_id, row_color, num):
+        for player in self.game.players:
+            if id(player) != player_id:
+                continue
+
+            if self.game.rolls_this_turn == 0:
+                return
+
+            if player == self.game.current_player:
+                # Würfler darf NUR in active_player_phase ankreuzen
+                if not self.game.active_player_phase:
+                    return
+                if self.game.marked_this_turn:
+                    return
+                if num != "lock" and (row_color, num) not in self.game.get_allowed_marks():
+                    return
+            else:
+                # Passiver Spieler
+                if not self.game.passive_phase:
+                    return
+                if player != self.game.passive_current_player():
+                    return
+                if getattr(player, 'marked_this_round', False):
+                    return
+                if num == "lock" or (row_color, num) not in self.game.get_allowed_marks_passive():
+                    return
+
+            # ── Ankreuzen ──
+            if num == "lock":
+                if len(player.board.marked[row_color]) >= 5 and not player.board.locked[row_color]:
+                    player.board.lock_row(row_color)
+            else:
+                if not player.board.locked[row_color]:
+                    if player.board.mark(row_color, num):
+                        self.game.on_mark(player=player)
+                        player.marked_this_round = True
+
+                        if player != self.game.current_player:
+                            # Passiver Spieler hat angekreuzt → automatisch weiter
+                            self.game.passive_next()
+                        else:
+                            # Würfler hat angekreuzt → Timer stoppen, WEITER zeigen
+                            self.game.active_timer_running = False
+
+                        last_field = {"red": 12, "yellow": 12, "green": 2, "blue": 2}
+                        if num == last_field[row_color]:
+                            player.board.lock_row(row_color)
+            return    
 
     def handle_click(self, pos):
 
+        # EXIT & RESET — sofort, keine Verzögerung
         if self.btn_exit.collidepoint(pos):
             self.game.popup.open("exit")
             return
@@ -714,84 +809,36 @@ class Renderer:
             self.game.popup.open("reset")
             return
 
-        # WEITER -> Button (nur sichtbar wenn Würfler dran ist nach passiver Phase)
-        if self.btn_next.collidepoint(pos):
-            self.confirm_reroll = False
-            self.game.active_timer_running = False
-            self.game.popup.hide_toast()
-            self.game.next_turn()
+        # Board-Zellen — sofort, keine Verzögerung
+        btn_next_hit = (
+            hasattr(self, 'btn_next')
+            and self.btn_next.width > 0
+            and self.btn_next.collidepoint(pos)
+        )
+        if not self.btn_roll.collidepoint(pos) and not btn_next_hit:
+            for (player_id, row_color, num), rect in self.cell_rects.items():
+                if rect.collidepoint(pos):
+                    self._handle_cell_click(player_id, row_color, num)
             return
 
+        # Verhindere Doppelklick während Delay läuft
+        if self._pending_action is not None:
+            return
+
+        # ── NOCHMAL? (verzögert) ──
+        if btn_next_hit:
+            if (self.game.active_player_phase
+                    and self.game.rolls_this_turn == 1
+                    and not self.game.marked_this_turn):
+                self._btn_pressed    = "next"
+                self._pending_timer  = pygame.time.get_ticks()
+                self._pending_action = self._do_reroll
+            return
+
+        # ── WÜRFELN / WEITER (verzögert) ──
         if self.btn_roll.collidepoint(pos):
-            zug_vorbei = self.game.marked_this_turn or self.game.rolls_this_turn >= 2
-
-            if zug_vorbei:
-                self.confirm_reroll = False
-                self.game.active_timer_running = False
-                self.game.popup.hide_toast()
-                self.game.next_turn()
-
-            elif self.game.passive_phase:
-                self.game.passive_next()
-
-            elif self.game.active_timer_running:
-                if self.confirm_reroll:
-                    self.confirm_reroll = False
-                    self.game.active_timer_running = False
-                    self.game.roll_dice()
-                else:
-                    self.confirm_reroll = True
-
-            elif self.game.rolls_this_turn == 0:
-                self.confirm_reroll = False
-                self.game.roll_dice()
-
-            elif self.confirm_reroll:
-                self.confirm_reroll = False
-                self.game.roll_dice()
-
-            else:
-                self.confirm_reroll = True
-
-            return
-
-        for (player_id, row_color, num), rect in self.cell_rects.items():
-            if rect.collidepoint(pos):
-                for player in self.game.players:
-                    if id(player) == player_id:
-
-                        if self.game.rolls_this_turn == 0:
-                            break
-
-                        if player == self.game.current_player:
-                            if self.game.marked_this_turn:
-                                break
-                            allowed = self.game.get_allowed_marks()
-                            if num != "lock" and (row_color, num) not in allowed:
-                                break
-                        else:
-                            if not self.game.passive_phase:
-                                break
-                            if player != self.game.passive_current_player():
-                                break
-                            if getattr(player, 'marked_this_round', False):
-                                break
-                            passive_allowed = self.game.get_allowed_marks_passive()
-                            if num == "lock" or (row_color, num) not in passive_allowed:
-                                break
-
-                        if num == "lock":
-                            if len(player.board.marked[row_color]) >= 5 and not player.board.locked[row_color]:
-                                player.board.lock_row(row_color)
-                        else:
-                            if not player.board.locked[row_color]:
-                                if player.board.mark(row_color, num):
-                                    self.game.on_mark(player=player)
-                                    player.marked_this_round = True
-                                    self.confirm_reroll = False
-                                    if player != self.game.current_player:
-                                        self.game.passive_next()
-                                    last_field = {"red": 12, "yellow": 12, "green": 2, "blue": 2}
-                                    if num == last_field[row_color]:
-                                        player.board.lock_row(row_color)
-                return
+            action = self._resolve_roll_action()
+            if action:
+                self._btn_pressed    = "roll"
+                self._pending_timer  = pygame.time.get_ticks()
+                self._pending_action = action

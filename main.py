@@ -30,9 +30,6 @@ game.popup = popup   # 🔥 WICHTIG
 popup.open("start")   # 🔥 START POPUP AUTO
 
 renderer = Renderer(screen, game)
-import inspect
-print(inspect.getsourcefile(renderer.handle_click))
-print(inspect.getsource(renderer.handle_click)[:200])
 
 print("🧠 Game + Renderer erstellt")
 
@@ -97,6 +94,7 @@ while running:
             popup.screen = screen
 
     # ← NUR EINMAL pro Frame, außerhalb des Event-Loops
+    renderer.update() 
     game.update()
     renderer.draw()
     game.popup.draw()

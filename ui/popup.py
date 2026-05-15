@@ -38,16 +38,18 @@ class Popup:
     def open(self, mode="reset"):
         self.mode = mode
 
-        if mode == "turn_notify":              # ← kein self.active = True hier
-            self.active = False  
-            self.toast_text = f"{self.game.current_player.name} ist dran!"
-            self.toast_color = self.game.current_player.color
-            self.toast_timer = pygame.time.get_ticks()
-            self.toast_active = True
-            return                             # ← sofort raus, kein Popup
+        if mode == "turn_notify":
+            self.active = False
+            # ── NUR Spielername, kein Würfel-Text ──
+            self.toast_text     = f"{self.game.current_player.name} ist dran!"
+            self.toast_subtext  = "Würfeln um zu starten"   # ← kein W+W, kein Farbe-Text
+            self.toast_subtext2 = ""
+            self.toast_color    = self.game.current_player.color
+            self.toast_timer    = pygame.time.get_ticks()
+            self.toast_active   = True
+            return
 
-        self.active = True                     # ← nur für echte Popups
-
+        self.active = True
         if mode == "names":
             self.name_inputs = [""] * self.player_count
             self.active_input = 0
@@ -195,6 +197,20 @@ class Popup:
     def hide_toast(self):
         self.toast_active = False
         self.toast_text = ""
+
+    def show_active_toast(self, player_name, white_sum):
+        self.toast_text  = f"{player_name}: Jetzt du! W+W={white_sum} oder Farbe wählen"
+        self.toast_color = (255, 215, 0)
+        self.toast_timer = pygame.time.get_ticks()
+        self.toast_active = True
+
+    def show_active_color_only_toast(self, player_name, white_sum):
+        self.toast_text     = f"{player_name}: Farbe wählen!"
+        self.toast_subtext  = f"W+W={white_sum} oder Weiß+Farbe"
+        self.toast_subtext2 = ""
+        self.toast_color    = (255, 160, 50)   # Orange = kein NOCHMAL mehr
+        self.toast_timer    = pygame.time.get_ticks()
+        self.toast_active   = True
 
     # ---------------- DRAW ----------------
     def draw(self):
